@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:food/car_model.dart';
 import 'package:food/details.dart';
 import 'package:food/user_model.dart';
 import 'package:hive_flutter/adapters.dart';
@@ -10,9 +11,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
 
+  Hive.registerAdapter(CarAdapter()); // Register the adapter
+  await Hive.openBox<Car>('favorites'); // Open a box for User objects
+
   Hive.registerAdapter(UserAdapter()); // Register the adapter
   await Hive.openBox<User>('users'); // Open a box for User objects
-
   runApp(RentalCarApp());
 }
 
@@ -51,13 +54,7 @@ class _RentaXHomePageState extends State<RentaXHomePage>
 
   Future<void> _loadUsers() async {
     final userBox = Hive.box<User>('users');
-    final newUser1 = User(name: 'first', role: "administrator");
-    final newUser2 = User(name: 'second', role: "manager");
-    final newUser3 = User(name: 'third', role: "admin");
 
-    userBox.add(newUser3);
-    userBox.add(newUser1);
-    userBox.add(newUser2);
     setState(() {
       _users = userBox.values.toList();
       if (_users.isNotEmpty) {
@@ -112,13 +109,16 @@ class _RentaXHomePageState extends State<RentaXHomePage>
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'RentaX',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
+              IconButton(
+                icon: Icon(Icons.favorite),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => FavoritesPage(),
+                    ),
+                  );
+                },
               ),
               Row(
                 children: [
@@ -378,6 +378,12 @@ class CarCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Коробка Hive для избранного
+    var favoritesBox = Hive.box<Car>('favorites');
+
+    // Проверяем, находится ли машина в избранном
+    bool isFavorite = favoritesBox.containsKey(carName);
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -389,7 +395,7 @@ class CarCard extends StatelessWidget {
               logoImage: logoImage,
               rating: rating,
               distance: distance,
-              maxSpeed: '250', // Example values
+              maxSpeed: '250', // Пример значений
               power: '300',
               price: price,
             ),
@@ -405,7 +411,6 @@ class CarCard extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(30)),
         child: Column(
-          // Changed from Row to Column to prevent overflow
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -415,12 +420,12 @@ class CarCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Car Logo and Color Section
+                    // Логотип машины и секция цвета
                     Row(
                       children: [
                         CircleAvatar(
                           backgroundImage: AssetImage(logoImage),
-                          radius: 30, // Bigger logo image
+                          radius: 30,
                         ),
                         Column(
                           children: [
@@ -453,10 +458,8 @@ class CarCard extends StatelessWidget {
                       ],
                     ),
                     SizedBox(height: 5),
-                    // Car Name
-
+                    // Рейтинг и аватары пользователей
                     SizedBox(height: 10),
-                    // User Avatars and Rating
                     Row(
                       children: [
                         CircleAvatar(
@@ -481,7 +484,7 @@ class CarCard extends StatelessWidget {
                       ],
                     ),
                     SizedBox(height: 5),
-                    // Recommendation Text
+                    // Рекомендация
                     Text(
                       recommend,
                       style: TextStyle(
@@ -491,7 +494,7 @@ class CarCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                // Battery and Kilometrage Section
+                // Секция батареи и километража
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -505,6 +508,29 @@ class CarCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                    // Кнопка избранного
+                    IconButton(
+                      icon: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        color: isFavorite ? Colors.red : Colors.grey,
+                      ),
+                      onPressed: () {
+                        if (isFavorite) {
+                          favoritesBox.delete(carName); // Удаляем из избранного
+                        } else {
+                          // Добавляем в избранное
+                          favoritesBox.put(
+                            carName,
+                            Car(
+                              name: carName,
+                              price: price,
+                              distance: distance,
+                              image: carImage,
+                            ),
+                          );
+                        }
+                      },
+                    ),
                   ],
                 ),
               ],
@@ -512,8 +538,7 @@ class CarCard extends StatelessWidget {
             SizedBox(height: 20),
             Row(
               children: [
-                // Price Section
-
+                // Секция цены
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -535,12 +560,57 @@ class CarCard extends StatelessWidget {
                   ],
                 ),
                 SizedBox(width: 60),
-                // Arrow Icon
+                // Иконка стрелки
                 Icon(Icons.arrow_forward_sharp, color: Colors.white),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class FavoritesPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    // Access the favorites box
+    var favoritesBox = Hive.box<Car>('favorites');
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Favorite Cars'),
+      ),
+      body: ValueListenableBuilder(
+        valueListenable: favoritesBox.listenable(), // Listen for changes
+        builder: (context, Box<Car> box, _) {
+          var favoriteCars = box.values.toList();
+
+          return favoriteCars.isEmpty
+              ? Center(
+                  child: Text('No favorite cars yet.'),
+                )
+              : ListView.builder(
+                  itemCount: favoriteCars.length,
+                  itemBuilder: (context, index) {
+                    final car = favoriteCars[index];
+
+                    return ListTile(
+                      leading: Image.asset(car.image),
+                      title: Text(car.name),
+                      subtitle: Text('${car.price} - ${car.distance} km'),
+                      trailing: IconButton(
+                        icon: Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          // Remove from favorites
+                          box.delete(
+                              car.key); // Assuming `key` is unique for each car
+                        },
+                      ),
+                    );
+                  },
+                );
+        },
       ),
     );
   }
