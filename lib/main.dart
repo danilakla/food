@@ -82,6 +82,7 @@ class _RentaXHomePageState extends State<RentaXHomePage>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadUsers();
+    _loadCars();
   }
 
   Future<void> _loadUsers() async {
@@ -99,6 +100,37 @@ class _RentaXHomePageState extends State<RentaXHomePage>
     setState(() {
       _currentUser = user;
     });
+  }
+
+  void _deleteCar(String name) {
+    setState(() {
+      _cars.removeWhere((el) => el.name == name);
+    });
+  }
+
+  void _updateCar(Car carNew) {
+    // Find the car by its name
+    Car? carToUpdate = _cars.firstWhere((car) => car.name == carNew.name);
+    final carBox = Hive.box<Car>('carsed');
+
+    if (carToUpdate != null) {
+      // Update the car's details
+      carToUpdate.name = carNew.name;
+      carToUpdate.price = carNew.price;
+      carToUpdate.distance = carNew.distance;
+
+      // Save the updated car object in Hive
+      carBox.delete(carToUpdate.name);
+      _deleteCar(carToUpdate.name);
+      _addCar(carToUpdate);
+      // Optionally, update the list if needed
+      int index = _cars.indexOf(carToUpdate);
+      _cars[index] = carToUpdate;
+
+      print('Car updated successfully');
+    } else {
+      print('Car not found');
+    }
   }
 
   Future<void> _getDeviceManufacturer() async {
@@ -327,17 +359,18 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                         itemBuilder: (context, index) {
                           final car = _cars[index];
                           return CarCard(
-                            colorCircle: Colors.blue,
-                            carName: car.name,
-                            rating: 4.5, // Static rating for demo purposes
-                            recommend: 'Recommended by users',
-                            price: car.price,
-                            distance: car.distance,
-                            carImage: 'assets/images/image1.png',
-                            logoImage:
-                                'assets/images/pors.png', // Static logo for demo purposes
-                            currentUser: _currentUser,
-                          );
+                              colorCircle: Colors.blue,
+                              carName: car.name,
+                              rating: 4.5, // Static rating for demo purposes
+                              recommend: 'Recommended by users',
+                              price: car.price,
+                              distance: car.distance,
+                              carImage: 'assets/images/image1.png',
+                              logoImage:
+                                  'assets/images/pors.png', // Static logo for demo purposes
+                              currentUser: _currentUser,
+                              onDelete: _deleteCar,
+                              upData: _updateCar);
                         },
                       ),
                     ],
@@ -397,6 +430,8 @@ class CarCard extends StatelessWidget {
   final String carImage;
   final String logoImage;
   final User? currentUser; // Current user object
+  final Function onDelete;
+  final Function upData;
 
   CarCard({
     required this.colorCircle,
@@ -408,6 +443,8 @@ class CarCard extends StatelessWidget {
     required this.carImage,
     required this.logoImage,
     required this.currentUser,
+    required this.onDelete, // Pass the delete callback
+    required this.upData, // Pass the delete callback
   });
 
   @override
@@ -473,29 +510,28 @@ class CarCard extends StatelessWidget {
                         style: TextStyle(color: Colors.white)),
                   ],
                 ),
-                if (canManageCars)
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          isFavorite ? Icons.favorite : Icons.favorite_border,
-                          color: isFavorite ? Colors.red : Colors.white,
-                        ),
-                        onPressed: () {
-                          if (isFavorite) {
-                            favoritesBox
-                                .delete(carName); // Remove from favorites
-                          } else {
-                            favoritesBox.put(
-                                carName,
-                                Car(
-                                    name: carName,
-                                    price: price,
-                                    distance: distance,
-                                    image: carImage)); // Add to favorites
-                          }
-                        },
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        color: isFavorite ? Colors.red : Colors.white,
                       ),
+                      onPressed: () {
+                        if (isFavorite) {
+                          favoritesBox.delete(carName); // Remove from favorites
+                        } else {
+                          favoritesBox.put(
+                              carName,
+                              Car(
+                                  name: carName,
+                                  price: price,
+                                  distance: distance,
+                                  image: carImage)); // Add to favorites
+                        }
+                      },
+                    ),
+                    if (canManageCars)
                       IconButton(
                         icon: Icon(Icons.edit, color: Colors.white),
                         onPressed: () {
@@ -503,6 +539,7 @@ class CarCard extends StatelessWidget {
                           _openEditCarForm(context, carName);
                         },
                       ),
+                    if (canManageCars)
                       IconButton(
                         icon: Icon(Icons.delete, color: Colors.white),
                         onPressed: () {
@@ -510,8 +547,8 @@ class CarCard extends StatelessWidget {
                           _confirmDeleteCar(context, carName);
                         },
                       ),
-                    ],
-                  ),
+                  ],
+                ),
               ],
             ),
           ],
@@ -526,8 +563,10 @@ class CarCard extends StatelessWidget {
     final updatedCar = await Navigator.push<Car>(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            EditCarForm(carName: carName), // Create a new EditCarForm
+        builder: (context) => EditCarForm(
+          carName: carName,
+          upData: upData,
+        ), // Create a new EditCarForm
       ),
     );
 
@@ -558,6 +597,7 @@ class CarCard extends StatelessWidget {
                 final carBox = Hive.box<Car>('carsed');
                 carBox.delete(carName);
                 Navigator.of(context).pop();
+                this.onDelete(carName);
               },
               child: Text("Delete"),
             ),
@@ -699,8 +739,9 @@ class _AddCarFormState extends State<AddCarForm> {
 
 class EditCarForm extends StatefulWidget {
   final String carName;
+  final Function upData;
 
-  EditCarForm({required this.carName});
+  EditCarForm({required this.carName, required this.upData});
 
   @override
   _EditCarFormState createState() => _EditCarFormState();
@@ -708,12 +749,14 @@ class EditCarForm extends StatefulWidget {
 
 class _EditCarFormState extends State<EditCarForm> {
   final _formKey = GlobalKey<FormState>();
-  late String _price;
-  late String _distance;
+  String? _price; // Use nullable type to avoid initialization issues
+  String? _distance;
 
   @override
   void initState() {
     super.initState();
+    _price = '0'; // Provide a default value to avoid null errors
+    _distance = '0';
     _loadCarDetails();
   }
 
@@ -741,7 +784,7 @@ class _EditCarFormState extends State<EditCarForm> {
           child: Column(
             children: [
               TextFormField(
-                initialValue: _price,
+                initialValue: _price ?? '0', // Use default if null
                 decoration: InputDecoration(labelText: 'Price'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -754,7 +797,7 @@ class _EditCarFormState extends State<EditCarForm> {
                 },
               ),
               TextFormField(
-                initialValue: _distance,
+                initialValue: _distance ?? '0', // Use default if null
                 decoration: InputDecoration(labelText: 'Distance'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -773,11 +816,12 @@ class _EditCarFormState extends State<EditCarForm> {
                     _formKey.currentState!.save();
                     final updatedCar = Car(
                         name: widget.carName,
-                        price: _price,
-                        distance: _distance,
+                        price: _price!,
+                        distance: _distance!,
                         image: ''); // Update image as needed
                     Navigator.pop(
                         context, updatedCar); // Return the updated car
+                    widget.upData(updatedCar);
                   }
                 },
                 child: Text('Save Changes'),
