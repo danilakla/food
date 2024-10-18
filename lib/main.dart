@@ -133,6 +133,23 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                         ),
                       ],
                     ),
+                  if (_currentUser != null &&
+                      (_currentUser!.role == 'admin' ||
+                          _currentUser!.role == 'manager'))
+                    IconButton(
+                      icon:
+                          Icon(Icons.admin_panel_settings, color: Colors.white),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ManageCarsPage(
+                              currentUser: _currentUser,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                 ],
               ),
             ],
@@ -294,6 +311,7 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                             distance: '570 km',
                             carImage: 'assets/images/image1.png',
                             logoImage: 'assets/images/pors.png', // Car logo
+                            currentUser: _currentUser,
                           ),
                           SizedBox(height: 20),
                           CarCard(
@@ -305,6 +323,7 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                             distance: '712 km',
                             carImage: 'assets/images/image1.png',
                             logoImage: 'assets/images/pors.png', // Car logo
+                            currentUser: _currentUser,
                           ),
                         ],
                       ),
@@ -364,6 +383,7 @@ class CarCard extends StatelessWidget {
   final String distance;
   final String carImage;
   final String logoImage;
+  final User? currentUser; // Current user object
 
   CarCard({
     required this.colorCircle,
@@ -374,15 +394,17 @@ class CarCard extends StatelessWidget {
     required this.distance,
     required this.carImage,
     required this.logoImage,
+    required this.currentUser,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Коробка Hive для избранного
     var favoritesBox = Hive.box<Car>('favorites');
-
-    // Проверяем, находится ли машина в избранном
     bool isFavorite = favoritesBox.containsKey(carName);
+    bool canManageCars = currentUser != null &&
+        (currentUser!.role == 'admin' || currentUser!.role == 'manager');
+    bool canManageFavorites =
+        currentUser != null && currentUser!.role == 'user';
 
     return GestureDetector(
       onTap: () {
@@ -391,11 +413,11 @@ class CarCard extends StatelessWidget {
           MaterialPageRoute(
             builder: (context) => CarDetailsPage(
               carName: carName,
-              carImage: 'assets/images/image2.png',
+              carImage: carImage,
               logoImage: logoImage,
               rating: rating,
               distance: distance,
-              maxSpeed: '250', // Пример значений
+              maxSpeed: '250',
               power: '300',
               price: price,
             ),
@@ -405,165 +427,84 @@ class CarCard extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.all(15),
         decoration: BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage(carImage),
-              fit: BoxFit.cover,
-            ),
-            borderRadius: BorderRadius.circular(30)),
+          image: DecorationImage(
+            image: AssetImage(carImage),
+            fit: BoxFit.cover,
+          ),
+          borderRadius: BorderRadius.circular(30),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Car information UI
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Логотип машины и секция цвета
                     Row(
                       children: [
                         CircleAvatar(
                           backgroundImage: AssetImage(logoImage),
                           radius: 30,
                         ),
-                        Column(
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  'Color:',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                                SizedBox(width: 5),
-                                CircleAvatar(
-                                  backgroundColor: colorCircle,
-                                  radius: 10,
-                                ),
-                              ],
-                            ),
-                            Text(
-                              carName,
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
+                        SizedBox(width: 10),
+                        Text(carName,
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 24)),
                       ],
                     ),
-                    SizedBox(height: 5),
-                    // Рейтинг и аватары пользователей
-                    SizedBox(height: 10),
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundImage: AssetImage('assets/images/face.png'),
-                          radius: 12,
-                        ),
-                        SizedBox(width: 5),
-                        CircleAvatar(
-                          backgroundImage: AssetImage('assets/images/face.png'),
-                          radius: 12,
-                        ),
-                        SizedBox(width: 5),
-                        CircleAvatar(
-                          backgroundImage: AssetImage('assets/images/face.png'),
-                          radius: 12,
-                        ),
-                        SizedBox(width: 5),
-                        Text(
-                          '$rating ★',
-                          style: TextStyle(color: Colors.black, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 5),
-                    // Рекомендация
-                    Text(
-                      recommend,
-                      style: TextStyle(
-                          color: const Color.fromARGB(255, 0, 0, 0),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold),
-                    ),
+                    Text(recommend,
+                        style: TextStyle(color: Colors.white, fontSize: 16)),
+                    Text('Price: $price',
+                        style: TextStyle(color: Colors.white)),
+                    Text('Distance: $distance',
+                        style: TextStyle(color: Colors.white)),
                   ],
                 ),
-                // Секция батареи и километража
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.battery_full, color: Colors.black, size: 20),
-                        SizedBox(width: 5),
-                        Text(
-                          distance,
-                          style: TextStyle(color: Colors.black, fontSize: 14),
+                if (canManageCars)
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        // Edit car logic
+                      } else if (value == 'delete') {
+                        // Delete car logic
+                      }
+                    },
+                    itemBuilder: (context) {
+                      return [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Text('Edit'),
                         ),
-                      ],
-                    ),
-                    // Кнопка избранного
-                    IconButton(
-                      icon: Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_border,
-                        color: isFavorite ? Colors.red : Colors.grey,
-                      ),
-                      onPressed: () {
-                        if (isFavorite) {
-                          favoritesBox.delete(carName); // Удаляем из избранного
-                        } else {
-                          // Добавляем в избранное
-                          favoritesBox.put(
-                            carName,
-                            Car(
-                              name: carName,
-                              price: price,
-                              distance: distance,
-                              image: carImage,
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Delete'),
+                        ),
+                      ];
+                    },
+                  ),
               ],
             ),
-            SizedBox(height: 20),
-            Row(
-              children: [
-                // Секция цены
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '1 day rental',
-                      style: TextStyle(
-                        color: const Color.fromARGB(137, 223, 211, 211),
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text(
-                      price,
-                      style: TextStyle(
-                        color: const Color.fromARGB(255, 255, 255, 255),
-                        fontSize: 25,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(width: 60),
-                // Иконка стрелки
-                Icon(Icons.arrow_forward_sharp, color: Colors.white),
-              ],
-            ),
+            if (canManageFavorites)
+              IconButton(
+                icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: Colors.red),
+                onPressed: () {
+                  if (isFavorite) {
+                    favoritesBox.delete(carName);
+                  } else {
+                    favoritesBox.put(
+                        carName,
+                        Car(
+                            name: carName,
+                            price: price,
+                            distance: distance,
+                            image: carImage));
+                  }
+                },
+              ),
           ],
         ),
       ),
@@ -611,6 +552,74 @@ class FavoritesPage extends StatelessWidget {
                   },
                 );
         },
+      ),
+    );
+  }
+}
+
+class ManageCarsPage extends StatefulWidget {
+  final User? currentUser;
+  ManageCarsPage({required this.currentUser});
+
+  @override
+  _ManageCarsPageState createState() => _ManageCarsPageState();
+}
+
+class _ManageCarsPageState extends State<ManageCarsPage> {
+  final _carBox = Hive.box<Car>('favorites');
+  final _formKey = GlobalKey<FormState>();
+
+  String? _carName, _price, _distance, _image;
+
+  void _addCar() {
+    if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
+      _carBox.add(Car(
+          name: _carName!,
+          price: _price!,
+          distance: _distance!,
+          image: _image!));
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Manage Cars')),
+      body: Form(
+        key: _formKey,
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Car Name'),
+                onSaved: (value) => _carName = value,
+                validator: (value) => value!.isEmpty ? 'Enter car name' : null,
+              ),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Price'),
+                onSaved: (value) => _price = value,
+                validator: (value) => value!.isEmpty ? 'Enter price' : null,
+              ),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Distance'),
+                onSaved: (value) => _distance = value,
+                validator: (value) => value!.isEmpty ? 'Enter distance' : null,
+              ),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Image URL'),
+                onSaved: (value) => _image = value,
+                validator: (value) => value!.isEmpty ? 'Enter image URL' : null,
+              ),
+              ElevatedButton(
+                onPressed: _addCar,
+                child: Text('Add Car'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
