@@ -13,6 +13,7 @@ void main() async {
 
   Hive.registerAdapter(CarAdapter()); // Register the adapter
   await Hive.openBox<Car>('favorites'); // Open a box for User objects
+  await Hive.openBox<Car>('carsed'); // Open a box for User objects
 
   Hive.registerAdapter(UserAdapter()); // Register the adapter
   await Hive.openBox<User>('users'); // Open a box for User objects
@@ -39,11 +40,42 @@ class RentaXHomePage extends StatefulWidget {
 
 class _RentaXHomePageState extends State<RentaXHomePage>
     with SingleTickerProviderStateMixin {
+  List<Car> _cars = []; // List to store added cars
+
   late TabController _tabController;
   DateTime _selectedDate = DateTime.now();
   String _deviceManufacturer = 'Неизвестно';
   User? _currentUser; // Current user object
   List<User> _users = []; // List of users
+
+  Future<void> _loadCars() async {
+    final carBox = Hive.box<Car>('carsed');
+    setState(() {
+      _cars = carBox.values.toList();
+    });
+  }
+
+  void _addCar(Car car) {
+    final carBox = Hive.box<Car>('carsed');
+    carBox.add(car); // Add the car to Hive storage
+    setState(() {
+      _cars.add(car); // Update the local list
+    });
+  }
+
+  // Method to open the form and add a new car
+  Future<void> _openAddCarForm() async {
+    final newCar = await Navigator.push<Car>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddCarForm(),
+      ),
+    );
+
+    if (newCar != null) {
+      _addCar(newCar); // Add the car if the form is submitted with a valid car
+    }
+  }
 
   @override
   void initState() {
@@ -137,18 +169,9 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                       (_currentUser!.role == 'admin' ||
                           _currentUser!.role == 'manager'))
                     IconButton(
-                      icon:
-                          Icon(Icons.admin_panel_settings, color: Colors.white),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ManageCarsPage(
-                              currentUser: _currentUser,
-                            ),
-                          ),
-                        );
-                      },
+                      icon: Icon(Icons.add),
+                      onPressed:
+                          _openAddCarForm, // Open the form to add a new car
                     ),
                 ],
               ),
@@ -299,33 +322,23 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                 children: [
                   PageView(
                     children: [
-                      ListView(
-                        padding: EdgeInsets.all(10),
-                        children: [
-                          CarCard(
+                      ListView.builder(
+                        itemCount: _cars.length,
+                        itemBuilder: (context, index) {
+                          final car = _cars[index];
+                          return CarCard(
                             colorCircle: Colors.blue,
-                            carName: 'Porsche 911 GT3',
-                            rating: 4.3,
-                            recommend: '82% Recommend',
-                            price: '\$900',
-                            distance: '570 km',
+                            carName: car.name,
+                            rating: 4.5, // Static rating for demo purposes
+                            recommend: 'Recommended by users',
+                            price: car.price,
+                            distance: car.distance,
                             carImage: 'assets/images/image1.png',
-                            logoImage: 'assets/images/pors.png', // Car logo
+                            logoImage:
+                                'assets/images/pors.png', // Static logo for demo purposes
                             currentUser: _currentUser,
-                          ),
-                          SizedBox(height: 20),
-                          CarCard(
-                            colorCircle: Colors.grey,
-                            carName: 'Lamborghini Huracan',
-                            rating: 4.9,
-                            recommend: '97% Recommend',
-                            price: '\$1200',
-                            distance: '712 km',
-                            carImage: 'assets/images/image1.png',
-                            logoImage: 'assets/images/pors.png', // Car logo
-                            currentUser: _currentUser,
-                          ),
-                        ],
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -403,8 +416,6 @@ class CarCard extends StatelessWidget {
     bool isFavorite = favoritesBox.containsKey(carName);
     bool canManageCars = currentUser != null &&
         (currentUser!.role == 'admin' || currentUser!.role == 'manager');
-    bool canManageFavorites =
-        currentUser != null && currentUser!.role == 'user';
 
     return GestureDetector(
       onTap: () {
@@ -436,7 +447,6 @@ class CarCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Car information UI
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -464,50 +474,96 @@ class CarCard extends StatelessWidget {
                   ],
                 ),
                 if (canManageCars)
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        // Edit car logic
-                      } else if (value == 'delete') {
-                        // Delete car logic
-                      }
-                    },
-                    itemBuilder: (context) {
-                      return [
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Text('Edit'),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: isFavorite ? Colors.red : Colors.white,
                         ),
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Text('Delete'),
-                        ),
-                      ];
-                    },
+                        onPressed: () {
+                          if (isFavorite) {
+                            favoritesBox
+                                .delete(carName); // Remove from favorites
+                          } else {
+                            favoritesBox.put(
+                                carName,
+                                Car(
+                                    name: carName,
+                                    price: price,
+                                    distance: distance,
+                                    image: carImage)); // Add to favorites
+                          }
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.edit, color: Colors.white),
+                        onPressed: () {
+                          // Add edit functionality
+                          _openEditCarForm(context, carName);
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete, color: Colors.white),
+                        onPressed: () {
+                          // Delete car confirmation
+                          _confirmDeleteCar(context, carName);
+                        },
+                      ),
+                    ],
                   ),
               ],
             ),
-            if (canManageFavorites)
-              IconButton(
-                icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: Colors.red),
-                onPressed: () {
-                  if (isFavorite) {
-                    favoritesBox.delete(carName);
-                  } else {
-                    favoritesBox.put(
-                        carName,
-                        Car(
-                            name: carName,
-                            price: price,
-                            distance: distance,
-                            image: carImage));
-                  }
-                },
-              ),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _openEditCarForm(BuildContext context, String carName) async {
+    // Implement logic to open edit form
+    // You may want to pass the current details of the car to the edit form
+    final updatedCar = await Navigator.push<Car>(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            EditCarForm(carName: carName), // Create a new EditCarForm
+      ),
+    );
+
+    if (updatedCar != null) {
+      // Update car details in Hive and local state if edit is successful
+      final carBox = Hive.box<Car>('carsed');
+      carBox.put(carName, updatedCar);
+    }
+  }
+
+  void _confirmDeleteCar(BuildContext context, String carName) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Delete Car"),
+          content: Text("Are you sure you want to delete $carName?"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                // Delete the car from Hive
+                final carBox = Hive.box<Car>('carsed');
+                carBox.delete(carName);
+                Navigator.of(context).pop();
+              },
+              child: Text("Delete"),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -557,65 +613,174 @@ class FavoritesPage extends StatelessWidget {
   }
 }
 
-class ManageCarsPage extends StatefulWidget {
-  final User? currentUser;
-  ManageCarsPage({required this.currentUser});
-
+class AddCarForm extends StatefulWidget {
   @override
-  _ManageCarsPageState createState() => _ManageCarsPageState();
+  _AddCarFormState createState() => _AddCarFormState();
 }
 
-class _ManageCarsPageState extends State<ManageCarsPage> {
-  final _carBox = Hive.box<Car>('favorites');
+class _AddCarFormState extends State<AddCarForm> {
   final _formKey = GlobalKey<FormState>();
+  String _name = '';
+  String _price = '';
+  String _distance = '';
+  String _image = 'assets/images/default_car.png'; // Default image path
 
-  String? _carName, _price, _distance, _image;
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Add New Car'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Car Name'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a car name';
+                  }
+                  return null;
+                },
+                onSaved: (value) {
+                  _name = value!;
+                },
+              ),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Price'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a price';
+                  }
+                  return null;
+                },
+                onSaved: (value) {
+                  _price = value!;
+                },
+              ),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Distance'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a distance';
+                  }
+                  return null;
+                },
+                onSaved: (value) {
+                  _distance = value!;
+                },
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    _formKey.currentState!.save();
+                    final newCar = Car(
+                      name: _name,
+                      price: _price,
+                      distance: _distance,
+                      image: _image,
+                    );
+                    Navigator.pop(context, newCar); // Pass the car back
+                  }
+                },
+                child: Text('Add Car'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-  void _addCar() {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-      _carBox.add(Car(
-          name: _carName!,
-          price: _price!,
-          distance: _distance!,
-          image: _image!));
-      Navigator.pop(context);
+class EditCarForm extends StatefulWidget {
+  final String carName;
+
+  EditCarForm({required this.carName});
+
+  @override
+  _EditCarFormState createState() => _EditCarFormState();
+}
+
+class _EditCarFormState extends State<EditCarForm> {
+  final _formKey = GlobalKey<FormState>();
+  late String _price;
+  late String _distance;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCarDetails();
+  }
+
+  Future<void> _loadCarDetails() async {
+    final carBox = Hive.box<Car>('carsed');
+    Car? car = carBox.get(widget.carName);
+    if (car != null) {
+      setState(() {
+        _price = car.price;
+        _distance = car.distance;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Manage Cars')),
-      body: Form(
-        key: _formKey,
-        child: Padding(
-          padding: EdgeInsets.all(20.0),
+      appBar: AppBar(
+        title: Text("Edit Car"),
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
           child: Column(
             children: [
               TextFormField(
-                decoration: InputDecoration(labelText: 'Car Name'),
-                onSaved: (value) => _carName = value,
-                validator: (value) => value!.isEmpty ? 'Enter car name' : null,
-              ),
-              TextFormField(
+                initialValue: _price,
                 decoration: InputDecoration(labelText: 'Price'),
-                onSaved: (value) => _price = value,
-                validator: (value) => value!.isEmpty ? 'Enter price' : null,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a price';
+                  }
+                  return null;
+                },
+                onSaved: (value) {
+                  _price = value!;
+                },
               ),
               TextFormField(
+                initialValue: _distance,
                 decoration: InputDecoration(labelText: 'Distance'),
-                onSaved: (value) => _distance = value,
-                validator: (value) => value!.isEmpty ? 'Enter distance' : null,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a distance';
+                  }
+                  return null;
+                },
+                onSaved: (value) {
+                  _distance = value!;
+                },
               ),
-              TextFormField(
-                decoration: InputDecoration(labelText: 'Image URL'),
-                onSaved: (value) => _image = value,
-                validator: (value) => value!.isEmpty ? 'Enter image URL' : null,
-              ),
+              SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _addCar,
-                child: Text('Add Car'),
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    _formKey.currentState!.save();
+                    final updatedCar = Car(
+                        name: widget.carName,
+                        price: _price,
+                        distance: _distance,
+                        image: ''); // Update image as needed
+                    Navigator.pop(
+                        context, updatedCar); // Return the updated car
+                  }
+                },
+                child: Text('Save Changes'),
               ),
             ],
           ),
