@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:food/car_model.dart';
 import 'package:food/details.dart';
 import 'package:food/user_model.dart';
@@ -19,10 +20,8 @@ void main() async {
   Hive.registerAdapter(UserAdapter()); // Register the adapter
   await Hive.openBox<User>('users'); // Open a box for User objects
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => CarProvider()),
-      ],
+    BlocProvider(
+      create: (context) => CarBloc()..add(LoadCars()),
       child: RentalCarApp(),
     ),
   );
@@ -78,7 +77,8 @@ class _RentaXHomePageState extends State<RentaXHomePage>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadUsers();
-    Provider.of<CarProvider>(context, listen: false).loadAll();
+    context.read<CarBloc>().add(LoadCars());
+    // Provider.of<CarProvider>(context, listen: false).loadAll();
     // _loadCars();
   }
 
@@ -330,26 +330,26 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                 children: [
                   PageView(
                     children: [
-                      ListView.builder(
-                        itemCount:
-                            Provider.of<CarProvider>(context)._cars.length,
-                        itemBuilder: (context, index) {
-                          final car =
-                              Provider.of<CarProvider>(context)._cars[index];
-                          return CarCard(
-                            colorCircle: Colors.blue,
-                            carName: car.name,
-                            rating: 4.5, // Static rating for demo purposes
-                            recommend: 'Recommended by users',
-                            price: car.price,
-                            distance: car.distance,
-                            carImage: 'assets/images/image1.png',
-                            logoImage:
-                                'assets/images/pors.png', // Static logo for demo purposes
-                            currentUser: _currentUser,
-                          );
-                        },
-                      ),
+                      BlocBuilder<CarBloc, CarState>(builder: (context, state) {
+                        return ListView.builder(
+                          itemCount: state.cars.length,
+                          itemBuilder: (context, index) {
+                            final car = state.cars[index];
+                            return CarCard(
+                              colorCircle: Colors.blue,
+                              carName: car.name,
+                              rating: 4.5, // Static rating for demo purposes
+                              recommend: 'Recommended by users',
+                              price: car.price,
+                              distance: car.distance,
+                              carImage: 'assets/images/image1.png',
+                              logoImage:
+                                  'assets/images/pors.png', // Static logo for demo purposes
+                              currentUser: _currentUser,
+                            );
+                          },
+                        );
+                      }),
                     ],
                   ),
                   // You can add content for the "Exclusive" tab here
@@ -422,8 +422,9 @@ class CarCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    bool isFavorite =
-        Provider.of<CarProvider>(context).carFavoeiteBox.containsKey(carName);
+    bool isFavorite = context.select<CarBloc, bool>(
+      (bloc) => bloc.state.favoriteCars.any((car) => car.name == carName),
+    );
     bool canManageCars = currentUser != null &&
         (currentUser!.role == 'admin' || currentUser!.role == 'manager');
 
@@ -493,17 +494,15 @@ class CarCard extends StatelessWidget {
                       ),
                       onPressed: () {
                         if (isFavorite) {
-                          Provider.of<CarProvider>(context, listen: false)
-                              .deleteFromFavorite(carName);
+                          context
+                              .read<CarBloc>()
+                              .add(RemoveFavoriteCar(carName));
                         } else {
-                          Provider.of<CarProvider>(context, listen: false)
-                              .putFavorite(
-                                  carName,
-                                  Car(
-                                      name: carName,
-                                      price: price,
-                                      distance: distance,
-                                      image: carImage));
+                          context.read<CarBloc>().add(AddFavoriteCar(Car(
+                              name: carName,
+                              price: price,
+                              distance: distance,
+                              image: carImage)));
                         }
                       },
                     ),
@@ -570,8 +569,7 @@ class CarCard extends StatelessWidget {
                 // Delete the car from Hive
 
                 Navigator.of(context).pop();
-                Provider.of<CarProvider>(context, listen: false)
-                    .delete(carName);
+                context.read<CarBloc>().add(RemoveCar(carName));
               },
               child: const Text("Delete"),
             ),
@@ -587,39 +585,27 @@ class FavoritesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Access the favorites box
-    final carProvider = Provider.of<CarProvider>(context);
-
-    var favoritesBox = carProvider.carFavoeiteBox;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Favorite Cars'),
       ),
-      body: ValueListenableBuilder(
-        valueListenable: favoritesBox.listenable(), // Listen for changes
-        builder: (context, Box<Car> box, _) {
-          var favoriteCars = carProvider.carFavoeiteBox;
+      body: BlocBuilder<CarBloc, CarState>(
+        builder: (context, state) {
+          // Проверяем, есть ли избранные автомобили
+          var favoriteCars = state.favoriteCars;
 
-          return carProvider._carsFavorite.isEmpty
+          return favoriteCars.isEmpty
               ? const Center(
                   child: Text('No favorite cars yet.'),
                 )
               : ListView.builder(
-                  itemCount: carProvider._carsFavorite.length,
+                  itemCount: favoriteCars.length,
                   itemBuilder: (context, index) {
-                    final car = carProvider._carsFavorite[index];
+                    final car = favoriteCars[index];
                     return ListTile(
                       leading: Image.asset(car.image),
                       title: Text(car.name),
                       subtitle: Text('${car.price} - ${car.distance} km'),
-                      // trailing: IconButton(
-                      //   icon: const Icon(Icons.delete, color: Colors.red),
-                      //   onPressed: () {
-                      //     // Remove from favorites
-                      //     carProvider.deleteFromFavorite(
-                      //         car.name); // Удалить из избранного
-                      //   },
-                      // ),
                     );
                   },
                 );
@@ -702,8 +688,8 @@ class _AddCarFormState extends State<AddCarForm> {
                       distance: _distance,
                       image: _image,
                     );
-                    Provider.of<CarProvider>(context, listen: false)
-                        .addCar(newCar);
+                    context.read<CarBloc>().add(AddCar(newCar));
+
                     Navigator.pop(context, newCar); // Pass the car back
                   }
                 },
@@ -800,8 +786,8 @@ class _EditCarFormState extends State<EditCarForm> {
                         image: ''); // Update image as needed
                     Navigator.pop(
                         context, updatedCar); // Return the updated car
-                    Provider.of<CarProvider>(context, listen: false)
-                        .updateCar(updatedCar);
+                    // Provider.of<CarProvider>(context, listen: false)
+                    //     .updateCar(updatedCar);
                   }
                 },
                 child: const Text('Save Changes'),
@@ -814,64 +800,80 @@ class _EditCarFormState extends State<EditCarForm> {
   }
 }
 
-class CarProvider with ChangeNotifier {
-  List<Car> _cars = [];
-  List<Car> _carsFavorite = [];
-  final Box<Car> carBox = Hive.box<Car>('carsed'); // Connects to Hive
-  final Box<Car> carFavoeiteBox =
-      Hive.box<Car>('favorites'); // Connects to Hive
+// События для BLoC
+abstract class CarEvent {}
 
-  List<Car> get cars => _cars;
-  List<Car> get carsFavorite => _carsFavorite;
+class LoadCars extends CarEvent {}
 
-  void addCar(Car car) {
-    _cars.add(car);
-    carBox.put(car.name, car); // Add to Hive
-    notifyListeners();
+class AddCar extends CarEvent {
+  final Car car;
+  AddCar(this.car);
+}
+
+class RemoveCar extends CarEvent {
+  final String car;
+  RemoveCar(this.car);
+}
+
+class AddFavoriteCar extends CarEvent {
+  final Car car;
+  AddFavoriteCar(this.car);
+}
+
+class RemoveFavoriteCar extends CarEvent {
+  final String carName;
+  RemoveFavoriteCar(this.carName);
+}
+
+// Состояния для BLoC
+class CarState {
+  final List<Car> cars;
+  final List<Car> favoriteCars;
+  CarState({required this.cars, required this.favoriteCars});
+}
+
+// CarBloc для управления событиями и состояниями
+class CarBloc extends Bloc<CarEvent, CarState> {
+  final Box<Car> carBox = Hive.box<Car>('carsed');
+  final Box<Car> favoriteCarBox = Hive.box<Car>('favorites');
+
+  CarBloc() : super(CarState(cars: [], favoriteCars: [])) {
+    on<LoadCars>(_onLoadCars);
+    on<AddCar>(_onAddCar);
+    on<RemoveCar>(_onRemoveCar);
+    on<AddFavoriteCar>(_onAddFavoriteCar);
+    on<RemoveFavoriteCar>(_onRemoveFavoriteCar);
   }
 
-  void loadAll() {
-    _cars = carBox.values.toList();
-    _carsFavorite = carFavoeiteBox.values.toList();
-    notifyListeners();
+  void _onLoadCars(LoadCars event, Emitter<CarState> emit) {
+    final cars = carBox.values.toList();
+    final favoriteCars = favoriteCarBox.values.toList();
+    emit(CarState(cars: cars, favoriteCars: favoriteCars));
   }
 
-  void removeCar(Car car) {
-    _cars.remove(car);
-    carBox.delete(car.name); // Remove from Hive
-    notifyListeners();
+  void _onAddCar(AddCar event, Emitter<CarState> emit) {
+    carBox.put(event.car.name, event.car);
+    final updatedCars = List<Car>.from(state.cars)..add(event.car);
+    emit(CarState(cars: updatedCars, favoriteCars: state.favoriteCars));
   }
 
-  void delete(String name) {
-    carBox.delete(name); // Remove from Hive
-
-    _cars.removeWhere((el) => el.name == name);
-    notifyListeners();
+  void _onRemoveCar(RemoveCar event, Emitter<CarState> emit) {
+    carBox.delete(event.car);
+    final updatedCars =
+        state.cars.where((car) => car.name != event.car).toList();
+    emit(CarState(cars: updatedCars, favoriteCars: state.favoriteCars));
   }
 
-  void deleteFromFavorite(String key) {
-    this.carFavoeiteBox.delete(key);
-    _carsFavorite.removeWhere((el) => el.name == key);
-    notifyListeners();
+  void _onAddFavoriteCar(AddFavoriteCar event, Emitter<CarState> emit) {
+    favoriteCarBox.put(event.car.name, event.car);
+    final updatedFavorites = List<Car>.from(state.favoriteCars)..add(event.car);
+    emit(CarState(cars: state.cars, favoriteCars: updatedFavorites));
   }
 
-  void putFavorite(String carName, Car car) {
-    this.carFavoeiteBox.put(carName, car);
-    this._carsFavorite.add(car);
-    notifyListeners();
-  }
-
-  void updateCar(Car carNew) {
-    Car? carToUpdate = _cars.firstWhere((car) => car.name == carNew.name);
-
-    carToUpdate.name = carNew.name;
-    carToUpdate.price = carNew.price;
-    carToUpdate.distance = carNew.distance;
-
-    delete(carToUpdate.name);
-    addCar(carToUpdate);
-
-    print('Car updated successfully');
-    notifyListeners();
+  void _onRemoveFavoriteCar(RemoveFavoriteCar event, Emitter<CarState> emit) {
+    favoriteCarBox.delete(event.carName);
+    final updatedFavorites =
+        state.favoriteCars.where((car) => car.name != event.carName).toList();
+    emit(CarState(cars: state.cars, favoriteCars: updatedFavorites));
   }
 }
