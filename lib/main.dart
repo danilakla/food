@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -77,6 +79,8 @@ class _RentaXHomePageState extends State<RentaXHomePage>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadUsers();
+    TaskFactoryBloc facotryLis = TaskFactoryBloc();
+    facotryLis._carsController;
     context.read<CarBloc>().add(LoadCars());
     // Provider.of<CarProvider>(context, listen: false).loadAll();
     // _loadCars();
@@ -875,5 +879,43 @@ class CarBloc extends Bloc<CarEvent, CarState> {
     final updatedFavorites =
         state.favoriteCars.where((car) => car.name != event.carName).toList();
     emit(CarState(cars: state.cars, favoriteCars: updatedFavorites));
+  }
+}
+
+class BlocProviderInhert extends InheritedWidget {
+  final CarBloc carBlock;
+
+  BlocProviderInhert({Key? key, required Widget child})
+      : carBlock = CarBloc(),
+        super(key: key, child: child);
+
+  static CarBloc of(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<BlocProviderInhert>()!
+        .carBlock;
+  }
+
+  @override
+  bool updateShouldNotify(InheritedWidget oldWidget) => true;
+}
+
+class TaskFactoryBloc {
+  final _carsController = StreamController<List<String>>();
+  Stream<List<String>> get taskStream => _carsController.stream;
+
+  List<String> _cars = [];
+
+  void addCars(String task) {
+    _cars.add(task);
+    _carsController.sink.add(_cars);
+  }
+
+  void removeCars(String task) {
+    _cars.remove(task);
+    _carsController.sink.add(_cars);
+  }
+
+  void dispose() {
+    _carsController.close();
   }
 }
