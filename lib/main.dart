@@ -6,6 +6,7 @@ import 'package:food/user_model.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/intl.dart'; // Add this import for date formatting
 import 'package:device_info/device_info.dart';
+import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,10 +18,19 @@ void main() async {
 
   Hive.registerAdapter(UserAdapter()); // Register the adapter
   await Hive.openBox<User>('users'); // Open a box for User objects
-  runApp(RentalCarApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => CarProvider()),
+      ],
+      child: RentalCarApp(),
+    ),
+  );
 }
 
 class RentalCarApp extends StatelessWidget {
+  const RentalCarApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -34,47 +44,33 @@ class RentalCarApp extends StatelessWidget {
 }
 
 class RentaXHomePage extends StatefulWidget {
+  const RentaXHomePage({super.key});
+
   @override
   _RentaXHomePageState createState() => _RentaXHomePageState();
 }
 
 class _RentaXHomePageState extends State<RentaXHomePage>
     with SingleTickerProviderStateMixin {
-  List<Car> _cars = []; // List to store added cars
-
   late TabController _tabController;
   DateTime _selectedDate = DateTime.now();
   String _deviceManufacturer = 'Неизвестно';
   User? _currentUser; // Current user object
   List<User> _users = []; // List of users
 
-  Future<void> _loadCars() async {
-    final carBox = Hive.box<Car>('carsed');
-    setState(() {
-      _cars = carBox.values.toList();
-    });
-  }
-
-  void _addCar(Car car) {
-    final carBox = Hive.box<Car>('carsed');
-    carBox.add(car); // Add the car to Hive storage
-    setState(() {
-      _cars.add(car); // Update the local list
-    });
-  }
-
   // Method to open the form and add a new car
   Future<void> _openAddCarForm() async {
-    final newCar = await Navigator.push<Car>(
+    // final newCar =
+    await Navigator.push<Car>(
       context,
       MaterialPageRoute(
         builder: (context) => AddCarForm(),
       ),
     );
 
-    if (newCar != null) {
-      _addCar(newCar); // Add the car if the form is submitted with a valid car
-    }
+    // if (newCar != null) {
+    //   _addCar(newCar); // Add the car if the form is submitted with a valid car
+    // }
   }
 
   @override
@@ -82,12 +78,20 @@ class _RentaXHomePageState extends State<RentaXHomePage>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadUsers();
-    _loadCars();
+    Provider.of<CarProvider>(context, listen: false).loadAll();
+    // _loadCars();
   }
 
   Future<void> _loadUsers() async {
     final userBox = Hive.box<User>('users');
 
+    // final newUser1 = User(name: 'Jon', role: "user");
+    // final newUser2 = User(name: 'Ban', role: "manager");
+    // final newUser3 = User(name: 'Ton', role: "admin");
+
+    // userBox.add(newUser3);
+    // userBox.add(newUser1);
+    // userBox.add(newUser2);
     setState(() {
       _users = userBox.values.toList();
       if (_users.isNotEmpty) {
@@ -100,37 +104,6 @@ class _RentaXHomePageState extends State<RentaXHomePage>
     setState(() {
       _currentUser = user;
     });
-  }
-
-  void _deleteCar(String name) {
-    setState(() {
-      _cars.removeWhere((el) => el.name == name);
-    });
-  }
-
-  void _updateCar(Car carNew) {
-    // Find the car by its name
-    Car? carToUpdate = _cars.firstWhere((car) => car.name == carNew.name);
-    final carBox = Hive.box<Car>('carsed');
-
-    if (carToUpdate != null) {
-      // Update the car's details
-      carToUpdate.name = carNew.name;
-      carToUpdate.price = carNew.price;
-      carToUpdate.distance = carNew.distance;
-
-      // Save the updated car object in Hive
-      carBox.delete(carToUpdate.name);
-      _deleteCar(carToUpdate.name);
-      _addCar(carToUpdate);
-      // Optionally, update the list if needed
-      int index = _cars.indexOf(carToUpdate);
-      _cars[index] = carToUpdate;
-
-      print('Car updated successfully');
-    } else {
-      print('Car not found');
-    }
   }
 
   Future<void> _getDeviceManufacturer() async {
@@ -157,10 +130,11 @@ class _RentaXHomePageState extends State<RentaXHomePage>
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
     );
-    if (picked != null && picked != _selectedDate)
+    if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
       });
+    }
   }
 
   @override
@@ -174,7 +148,7 @@ class _RentaXHomePageState extends State<RentaXHomePage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               IconButton(
-                icon: Icon(Icons.favorite),
+                icon: const Icon(Icons.favorite),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -186,14 +160,15 @@ class _RentaXHomePageState extends State<RentaXHomePage>
               ),
               Row(
                 children: [
-                  Icon(Icons.location_pin, color: Colors.white),
+                  const Icon(Icons.location_pin, color: Colors.white),
                   if (_currentUser != null)
                     Row(
                       children: [
-                        Icon(Icons.person, color: Colors.white),
+                        const Icon(Icons.person, color: Colors.white),
                         Text(
                           'User: ${_currentUser!.name}, role: ${_currentUser!.role}',
-                          style: TextStyle(color: Colors.white, fontSize: 12),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 12),
                         ),
                       ],
                     ),
@@ -201,7 +176,7 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                       (_currentUser!.role == 'admin' ||
                           _currentUser!.role == 'manager'))
                     IconButton(
-                      icon: Icon(Icons.add),
+                      icon: const Icon(Icons.add),
                       onPressed:
                           _openAddCarForm, // Open the form to add a new car
                     ),
@@ -221,9 +196,9 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                 }).toList();
               },
             ),
-            Icon(Icons.notifications_none, color: Colors.white),
-            Padding(
-              padding: const EdgeInsets.all(4.0),
+            const Icon(Icons.notifications_none, color: Colors.white),
+            const Padding(
+              padding: EdgeInsets.all(4.0),
               child: CircleAvatar(
                 backgroundImage: AssetImage('assets/images/face.png'),
               ),
@@ -237,9 +212,9 @@ class _RentaXHomePageState extends State<RentaXHomePage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
 
-                  Text(
+                  const Text(
                     "Premium",
                     style: TextStyle(
                       color: Colors.white,
@@ -247,7 +222,7 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                       fontWeight: FontWeight.w100,
                     ),
                   ),
-                  Text(
+                  const Text(
                     "& Rental Car",
                     style: TextStyle(
                       color: Colors.white,
@@ -255,7 +230,7 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                       fontWeight: FontWeight.w100,
                     ),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   // Horizontal Tab Menu
                   Container(
                     child: TabBar(
@@ -263,7 +238,7 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                       indicatorColor: Colors.white,
                       labelColor: Colors.white,
                       unselectedLabelColor: Colors.white70,
-                      tabs: [
+                      tabs: const [
                         Tab(
                           text: "Premium",
                         ),
@@ -285,17 +260,17 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                       ],
                     ),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   // Date Selector with Down Arrow
                   Row(
                     children: [
                       Column(
                         children: [
-                          Row(children: [
+                          const Row(children: [
                             Text(
                               'Choose Date: ',
                               style: TextStyle(
-                                color: const Color.fromARGB(255, 101, 101, 101),
+                                color: Color.fromARGB(255, 101, 101, 101),
                                 fontSize: 13,
                               ),
                             ),
@@ -304,10 +279,10 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                                 color: Color.fromARGB(255, 101, 101, 101)),
                           ]),
                           Row(children: [
-                            Icon(Icons.check_circle,
-                                color: const Color.fromARGB(255, 50, 242, 56)),
-                            SizedBox(width: 5),
-                            Text(
+                            const Icon(Icons.check_circle,
+                                color: Color.fromARGB(255, 50, 242, 56)),
+                            const SizedBox(width: 5),
+                            const Text(
                               'Today ',
                               style: TextStyle(
                                   color: Colors.white,
@@ -316,22 +291,23 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                             ),
                             Text(
                               DateFormat('dd MMMM').format(_selectedDate),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
                               ),
                             ),
-                            SizedBox(width: 5),
-                            Icon(Icons.arrow_drop_down,
+                            const SizedBox(width: 5),
+                            const Icon(Icons.arrow_drop_down,
                                 color: Colors.greenAccent),
                           ])
                         ],
                       ),
-                      Spacer(),
+                      const Spacer(),
                       IconButton(
                         onPressed: () => _selectDate(context),
-                        icon: Icon(Icons.calendar_today, color: Colors.white),
+                        icon: const Icon(Icons.calendar_today,
+                            color: Colors.white),
                       ),
                       Container(
                         width: 1,
@@ -340,14 +316,14 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                       ),
                       IconButton(
                         onPressed: () {},
-                        icon: Icon(Icons.grid_view, color: Colors.white),
+                        icon: const Icon(Icons.grid_view, color: Colors.white),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             Expanded(
               child: TabBarView(
                 controller: _tabController,
@@ -355,28 +331,29 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                   PageView(
                     children: [
                       ListView.builder(
-                        itemCount: _cars.length,
+                        itemCount:
+                            Provider.of<CarProvider>(context)._cars.length,
                         itemBuilder: (context, index) {
-                          final car = _cars[index];
+                          final car =
+                              Provider.of<CarProvider>(context)._cars[index];
                           return CarCard(
-                              colorCircle: Colors.blue,
-                              carName: car.name,
-                              rating: 4.5, // Static rating for demo purposes
-                              recommend: 'Recommended by users',
-                              price: car.price,
-                              distance: car.distance,
-                              carImage: 'assets/images/image1.png',
-                              logoImage:
-                                  'assets/images/pors.png', // Static logo for demo purposes
-                              currentUser: _currentUser,
-                              onDelete: _deleteCar,
-                              upData: _updateCar);
+                            colorCircle: Colors.blue,
+                            carName: car.name,
+                            rating: 4.5, // Static rating for demo purposes
+                            recommend: 'Recommended by users',
+                            price: car.price,
+                            distance: car.distance,
+                            carImage: 'assets/images/image1.png',
+                            logoImage:
+                                'assets/images/pors.png', // Static logo for demo purposes
+                            currentUser: _currentUser,
+                          );
                         },
                       ),
                     ],
                   ),
                   // You can add content for the "Exclusive" tab here
-                  Center(
+                  const Center(
                     child: Text(
                       "Exclusive Content",
                       style: TextStyle(color: Colors.white, fontSize: 24),
@@ -388,20 +365,20 @@ class _RentaXHomePageState extends State<RentaXHomePage>
           ],
         ),
         bottomNavigationBar: Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             borderRadius: BorderRadius.only(
                 topRight: Radius.circular(10.0),
                 bottomRight: Radius.circular(10.0)),
-            color: const Color.fromARGB(255, 49, 49, 49),
+            color: Color.fromARGB(255, 49, 49, 49),
           ),
           child: BottomNavigationBar(
             backgroundColor: Colors.transparent,
             selectedItemColor: Colors.transparent,
             unselectedItemColor: Colors.transparent,
-            selectedLabelStyle: TextStyle(backgroundColor: Colors.white),
-            items: [
+            selectedLabelStyle: const TextStyle(backgroundColor: Colors.white),
+            items: const [
               BottomNavigationBarItem(
-                  backgroundColor: const Color.fromARGB(255, 49, 49, 49),
+                  backgroundColor: Color.fromARGB(255, 49, 49, 49),
                   icon: Icon(Icons.apps, color: Colors.white),
                   label: ''),
               BottomNavigationBarItem(
@@ -429,28 +406,24 @@ class CarCard extends StatelessWidget {
   final String distance;
   final String carImage;
   final String logoImage;
-  final User? currentUser; // Current user object
-  final Function onDelete;
-  final Function upData;
+  final User? currentUser;
 
-  CarCard({
-    required this.colorCircle,
-    required this.carName,
-    required this.rating,
-    required this.recommend,
-    required this.price,
-    required this.distance,
-    required this.carImage,
-    required this.logoImage,
-    required this.currentUser,
-    required this.onDelete, // Pass the delete callback
-    required this.upData, // Pass the delete callback
-  });
+  const CarCard(
+      {super.key,
+      required this.colorCircle,
+      required this.carName,
+      required this.rating,
+      required this.recommend,
+      required this.price,
+      required this.distance,
+      required this.carImage,
+      required this.logoImage,
+      required this.currentUser});
 
   @override
   Widget build(BuildContext context) {
-    var favoritesBox = Hive.box<Car>('favorites');
-    bool isFavorite = favoritesBox.containsKey(carName);
+    bool isFavorite =
+        Provider.of<CarProvider>(context).carFavoeiteBox.containsKey(carName);
     bool canManageCars = currentUser != null &&
         (currentUser!.role == 'admin' || currentUser!.role == 'manager');
 
@@ -473,7 +446,7 @@ class CarCard extends StatelessWidget {
         );
       },
       child: Container(
-        padding: EdgeInsets.all(15),
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           image: DecorationImage(
             image: AssetImage(carImage),
@@ -496,18 +469,19 @@ class CarCard extends StatelessWidget {
                           backgroundImage: AssetImage(logoImage),
                           radius: 30,
                         ),
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
                         Text(carName,
-                            style:
-                                TextStyle(color: Colors.white, fontSize: 24)),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 24)),
                       ],
                     ),
                     Text(recommend,
-                        style: TextStyle(color: Colors.white, fontSize: 16)),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 16)),
                     Text('Price: $price',
-                        style: TextStyle(color: Colors.white)),
+                        style: const TextStyle(color: Colors.white)),
                     Text('Distance: $distance',
-                        style: TextStyle(color: Colors.white)),
+                        style: const TextStyle(color: Colors.white)),
                   ],
                 ),
                 Row(
@@ -519,21 +493,23 @@ class CarCard extends StatelessWidget {
                       ),
                       onPressed: () {
                         if (isFavorite) {
-                          favoritesBox.delete(carName); // Remove from favorites
+                          Provider.of<CarProvider>(context, listen: false)
+                              .deleteFromFavorite(carName);
                         } else {
-                          favoritesBox.put(
-                              carName,
-                              Car(
-                                  name: carName,
-                                  price: price,
-                                  distance: distance,
-                                  image: carImage)); // Add to favorites
+                          Provider.of<CarProvider>(context, listen: false)
+                              .putFavorite(
+                                  carName,
+                                  Car(
+                                      name: carName,
+                                      price: price,
+                                      distance: distance,
+                                      image: carImage));
                         }
                       },
                     ),
                     if (canManageCars)
                       IconButton(
-                        icon: Icon(Icons.edit, color: Colors.white),
+                        icon: const Icon(Icons.edit, color: Colors.white),
                         onPressed: () {
                           // Add edit functionality
                           _openEditCarForm(context, carName);
@@ -541,7 +517,7 @@ class CarCard extends StatelessWidget {
                       ),
                     if (canManageCars)
                       IconButton(
-                        icon: Icon(Icons.delete, color: Colors.white),
+                        icon: const Icon(Icons.delete, color: Colors.white),
                         onPressed: () {
                           // Delete car confirmation
                           _confirmDeleteCar(context, carName);
@@ -563,10 +539,8 @@ class CarCard extends StatelessWidget {
     final updatedCar = await Navigator.push<Car>(
       context,
       MaterialPageRoute(
-        builder: (context) => EditCarForm(
-          carName: carName,
-          upData: upData,
-        ), // Create a new EditCarForm
+        builder: (context) =>
+            EditCarForm(carName: carName), // Create a new EditCarForm
       ),
     );
 
@@ -582,24 +556,24 @@ class CarCard extends StatelessWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text("Delete Car"),
+          title: const Text("Delete Car"),
           content: Text("Are you sure you want to delete $carName?"),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: Text("Cancel"),
+              child: const Text("Cancel"),
             ),
             TextButton(
               onPressed: () {
                 // Delete the car from Hive
-                final carBox = Hive.box<Car>('carsed');
-                carBox.delete(carName);
+
                 Navigator.of(context).pop();
-                this.onDelete(carName);
+                Provider.of<CarProvider>(context, listen: false)
+                    .delete(carName);
               },
-              child: Text("Delete"),
+              child: const Text("Delete"),
             ),
           ],
         );
@@ -609,41 +583,43 @@ class CarCard extends StatelessWidget {
 }
 
 class FavoritesPage extends StatelessWidget {
+  const FavoritesPage({super.key});
+
   @override
   Widget build(BuildContext context) {
     // Access the favorites box
-    var favoritesBox = Hive.box<Car>('favorites');
+    final carProvider = Provider.of<CarProvider>(context);
 
+    var favoritesBox = carProvider.carFavoeiteBox;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Favorite Cars'),
+        title: const Text('Favorite Cars'),
       ),
       body: ValueListenableBuilder(
         valueListenable: favoritesBox.listenable(), // Listen for changes
         builder: (context, Box<Car> box, _) {
-          var favoriteCars = box.values.toList();
+          var favoriteCars = carProvider.carFavoeiteBox;
 
-          return favoriteCars.isEmpty
-              ? Center(
+          return carProvider._carsFavorite.isEmpty
+              ? const Center(
                   child: Text('No favorite cars yet.'),
                 )
               : ListView.builder(
-                  itemCount: favoriteCars.length,
+                  itemCount: carProvider._carsFavorite.length,
                   itemBuilder: (context, index) {
-                    final car = favoriteCars[index];
-
+                    final car = carProvider._carsFavorite[index];
                     return ListTile(
                       leading: Image.asset(car.image),
                       title: Text(car.name),
                       subtitle: Text('${car.price} - ${car.distance} km'),
-                      trailing: IconButton(
-                        icon: Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
-                          // Remove from favorites
-                          box.delete(
-                              car.key); // Assuming `key` is unique for each car
-                        },
-                      ),
+                      // trailing: IconButton(
+                      //   icon: const Icon(Icons.delete, color: Colors.red),
+                      //   onPressed: () {
+                      //     // Remove from favorites
+                      //     carProvider.deleteFromFavorite(
+                      //         car.name); // Удалить из избранного
+                      //   },
+                      // ),
                     );
                   },
                 );
@@ -654,6 +630,8 @@ class FavoritesPage extends StatelessWidget {
 }
 
 class AddCarForm extends StatefulWidget {
+  const AddCarForm({super.key});
+
   @override
   _AddCarFormState createState() => _AddCarFormState();
 }
@@ -663,13 +641,13 @@ class _AddCarFormState extends State<AddCarForm> {
   String _name = '';
   String _price = '';
   String _distance = '';
-  String _image = 'assets/images/default_car.png'; // Default image path
+  final String _image = 'assets/images/default_car.png'; // Default image path
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Add New Car'),
+        title: const Text('Add New Car'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -678,7 +656,7 @@ class _AddCarFormState extends State<AddCarForm> {
           child: Column(
             children: [
               TextFormField(
-                decoration: InputDecoration(labelText: 'Car Name'),
+                decoration: const InputDecoration(labelText: 'Car Name'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a car name';
@@ -690,7 +668,7 @@ class _AddCarFormState extends State<AddCarForm> {
                 },
               ),
               TextFormField(
-                decoration: InputDecoration(labelText: 'Price'),
+                decoration: const InputDecoration(labelText: 'Price'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a price';
@@ -702,7 +680,7 @@ class _AddCarFormState extends State<AddCarForm> {
                 },
               ),
               TextFormField(
-                decoration: InputDecoration(labelText: 'Distance'),
+                decoration: const InputDecoration(labelText: 'Distance'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a distance';
@@ -713,7 +691,7 @@ class _AddCarFormState extends State<AddCarForm> {
                   _distance = value!;
                 },
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
@@ -724,10 +702,12 @@ class _AddCarFormState extends State<AddCarForm> {
                       distance: _distance,
                       image: _image,
                     );
+                    Provider.of<CarProvider>(context, listen: false)
+                        .addCar(newCar);
                     Navigator.pop(context, newCar); // Pass the car back
                   }
                 },
-                child: Text('Add Car'),
+                child: const Text('Add Car'),
               ),
             ],
           ),
@@ -739,9 +719,8 @@ class _AddCarFormState extends State<AddCarForm> {
 
 class EditCarForm extends StatefulWidget {
   final String carName;
-  final Function upData;
 
-  EditCarForm({required this.carName, required this.upData});
+  const EditCarForm({super.key, required this.carName});
 
   @override
   _EditCarFormState createState() => _EditCarFormState();
@@ -775,17 +754,17 @@ class _EditCarFormState extends State<EditCarForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Edit Car"),
+        title: const Text("Edit Car"),
       ),
       body: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
               TextFormField(
                 initialValue: _price ?? '0', // Use default if null
-                decoration: InputDecoration(labelText: 'Price'),
+                decoration: const InputDecoration(labelText: 'Price'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a price';
@@ -798,7 +777,7 @@ class _EditCarFormState extends State<EditCarForm> {
               ),
               TextFormField(
                 initialValue: _distance ?? '0', // Use default if null
-                decoration: InputDecoration(labelText: 'Distance'),
+                decoration: const InputDecoration(labelText: 'Distance'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a distance';
@@ -809,7 +788,7 @@ class _EditCarFormState extends State<EditCarForm> {
                   _distance = value!;
                 },
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
@@ -821,15 +800,78 @@ class _EditCarFormState extends State<EditCarForm> {
                         image: ''); // Update image as needed
                     Navigator.pop(
                         context, updatedCar); // Return the updated car
-                    widget.upData(updatedCar);
+                    Provider.of<CarProvider>(context, listen: false)
+                        .updateCar(updatedCar);
                   }
                 },
-                child: Text('Save Changes'),
+                child: const Text('Save Changes'),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+class CarProvider with ChangeNotifier {
+  List<Car> _cars = [];
+  List<Car> _carsFavorite = [];
+  final Box<Car> carBox = Hive.box<Car>('carsed'); // Connects to Hive
+  final Box<Car> carFavoeiteBox =
+      Hive.box<Car>('favorites'); // Connects to Hive
+
+  List<Car> get cars => _cars;
+  List<Car> get carsFavorite => _carsFavorite;
+
+  void addCar(Car car) {
+    _cars.add(car);
+    carBox.put(car.name, car); // Add to Hive
+    notifyListeners();
+  }
+
+  void loadAll() {
+    _cars = carBox.values.toList();
+    _carsFavorite = carFavoeiteBox.values.toList();
+    notifyListeners();
+  }
+
+  void removeCar(Car car) {
+    _cars.remove(car);
+    carBox.delete(car.name); // Remove from Hive
+    notifyListeners();
+  }
+
+  void delete(String name) {
+    carBox.delete(name); // Remove from Hive
+
+    _cars.removeWhere((el) => el.name == name);
+    notifyListeners();
+  }
+
+  void deleteFromFavorite(String key) {
+    this.carFavoeiteBox.delete(key);
+    _carsFavorite.removeWhere((el) => el.name == key);
+    notifyListeners();
+  }
+
+  void putFavorite(String carName, Car car) {
+    this.carFavoeiteBox.put(carName, car);
+    this._carsFavorite.add(car);
+    notifyListeners();
+  }
+
+  void updateCar(Car carNew) {
+    Car? carToUpdate = _cars.firstWhere((car) => car.name == carNew.name);
+
+    carToUpdate.name = carNew.name;
+    carToUpdate.price = carNew.price;
+    carToUpdate.distance = carNew.distance;
+
+    delete(carToUpdate.name);
+    addCar(carToUpdate);
+
+    print('Car updated successfully');
+    notifyListeners();
   }
 }

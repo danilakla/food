@@ -15,7 +15,8 @@ class CarDetailsPage extends StatelessWidget {
   final String safetyNotice =
       "For your safety, we recommend not exceeding the speed limit.";
 
-  CarDetailsPage({
+  const CarDetailsPage({
+    super.key,
     required this.carName,
     required this.carImage,
     required this.logoImage,
@@ -29,18 +30,18 @@ class CarDetailsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color.fromARGB(
+      backgroundColor: const Color.fromARGB(
           255, 20, 19, 25), // Adjust background to match the real design
       appBar: AppBar(
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
         backgroundColor: const Color.fromARGB(255, 252, 235, 117),
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: [
+        actions: const [
           Icon(Icons.tune, color: Colors.black), // Settings or filter icon
           SizedBox(width: 15),
         ],
@@ -54,7 +55,7 @@ class CarDetailsPage extends StatelessWidget {
                 child: Container(
                   height: 457,
                   width: double.infinity,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                       image: DecorationImage(
                         image: AssetImage(
                             'assets/images/image4.png'), // Car image as the background
@@ -69,7 +70,7 @@ class CarDetailsPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
+                        const Column(
                           children: [
                             Text(
                               'Car Detail',
@@ -99,10 +100,10 @@ class CarDetailsPage extends StatelessWidget {
                                   backgroundImage: AssetImage(logoImage),
                                   radius: 25, // Adjust logo size as per design
                                 ),
-                                SizedBox(width: 20),
+                                const SizedBox(width: 20),
                                 Text(
                                   carName,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 26,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.black,
@@ -112,17 +113,17 @@ class CarDetailsPage extends StatelessWidget {
                             ),
                             // Model 360 angle text
 
-                            SizedBox(height: 15),
+                            const SizedBox(height: 15),
                             // Car Description
                             Text(
                               description,
-                              style: TextStyle(
-                                color: const Color.fromARGB(255, 67, 67, 67),
+                              style: const TextStyle(
+                                color: Color.fromARGB(255, 67, 67, 67),
                                 fontSize: 14,
                               ),
                             ),
                             // Safety Icon and Notice
-                            Row(
+                            const Row(
                               children: [
                                 Icon(Icons.shield, color: Colors.black),
                                 SizedBox(width: 5),
@@ -141,61 +142,60 @@ class CarDetailsPage extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            SizedBox(height: 15),
+                            const SizedBox(height: 15),
                             Container(
-                              padding: EdgeInsets.fromLTRB(3, 8, 3, 8),
+                              padding: const EdgeInsets.fromLTRB(3, 8, 3, 8),
                               decoration: BoxDecoration(
                                   border: Border.all(
                                       color:
                                           const Color.fromRGBO(61, 61, 61, 1)),
-                                  borderRadius:
-                                      BorderRadius.all(Radius.circular(20))),
+                                  borderRadius: const BorderRadius.all(
+                                      Radius.circular(20))),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 20.0),
                                 child: Row(
                                   children: [
-                                    CircleAvatar(
+                                    const CircleAvatar(
                                       backgroundImage:
                                           AssetImage('assets/images/face.png'),
                                       radius: 12,
                                     ),
-                                    SizedBox(width: 5),
-                                    CircleAvatar(
+                                    const SizedBox(width: 5),
+                                    const CircleAvatar(
                                       backgroundImage:
                                           AssetImage('assets/images/face.png'),
                                       radius: 12,
                                     ),
-                                    SizedBox(width: 5),
-                                    CircleAvatar(
+                                    const SizedBox(width: 5),
+                                    const CircleAvatar(
                                       backgroundImage:
                                           AssetImage('assets/images/face.png'),
                                       radius: 12,
                                     ),
-                                    SizedBox(width: 10),
+                                    const SizedBox(width: 10),
                                     Text(
                                       '$rating ★',
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    Spacer(),
+                                    const Spacer(),
                                     // Reviews text and Arrow Icon
-                                    Text(
+                                    const Text(
                                       'Reviews',
                                       style: TextStyle(
-                                          color: const Color.fromARGB(
+                                          color: Color.fromARGB(
                                               255, 176, 127, 190),
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold),
                                     ),
-                                    SizedBox(width: 10),
-                                    Icon(
+                                    const SizedBox(width: 10),
+                                    const Icon(
                                       Icons.arrow_circle_right_sharp,
                                       size: 20,
-                                      color: const Color.fromARGB(
-                                          255, 176, 127, 190),
+                                      color: Color.fromARGB(255, 176, 127, 190),
                                     ),
                                   ],
                                 ),
@@ -216,7 +216,7 @@ class CarDetailsPage extends StatelessWidget {
 
           Container(
             decoration:
-                BoxDecoration(color: const Color.fromARGB(255, 20, 19, 25)),
+                const BoxDecoration(color: Color.fromARGB(255, 20, 19, 25)),
             child: Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 40.0, vertical: 20),
@@ -224,11 +224,11 @@ class CarDetailsPage extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   Container(
-                      padding: EdgeInsets.all(30),
-                      decoration: BoxDecoration(
+                      padding: const EdgeInsets.all(30),
+                      decoration: const BoxDecoration(
                           borderRadius: BorderRadius.all(Radius.circular(20)),
-                          color: const Color.fromARGB(255, 36, 34, 45)),
-                      child: Column(
+                          color: Color.fromARGB(255, 36, 34, 45)),
+                      child: const Column(
                         children: [
                           Icon(Icons.battery_5_bar, color: Colors.white),
                           SizedBox(height: 5),
@@ -257,28 +257,28 @@ class CarDetailsPage extends StatelessWidget {
                         ],
                       )),
                   Container(
-                      padding: EdgeInsets.all(28),
-                      decoration: BoxDecoration(
+                      padding: const EdgeInsets.all(28),
+                      decoration: const BoxDecoration(
                           borderRadius: BorderRadius.all(Radius.circular(20)),
-                          color: const Color.fromARGB(255, 36, 34, 45)),
+                          color: Color.fromARGB(255, 36, 34, 45)),
                       child: Column(
                         children: [
-                          Icon(Icons.lock_clock, color: Colors.white),
-                          SizedBox(height: 5),
+                          const Icon(Icons.lock_clock, color: Colors.white),
+                          const SizedBox(height: 5),
                           Row(
                             children: [
                               Text(
-                                '$maxSpeed',
-                                style: TextStyle(
+                                maxSpeed,
+                                style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                   fontSize: 20,
                                 ),
                               ),
-                              SizedBox(
+                              const SizedBox(
                                 width: 4,
                               ),
-                              Text(
+                              const Text(
                                 'km/h',
                                 style: TextStyle(
                                   fontSize: 10,
@@ -290,28 +290,28 @@ class CarDetailsPage extends StatelessWidget {
                         ],
                       )),
                   Container(
-                      padding: EdgeInsets.all(30),
-                      decoration: BoxDecoration(
+                      padding: const EdgeInsets.all(30),
+                      decoration: const BoxDecoration(
                           borderRadius: BorderRadius.all(Radius.circular(20)),
-                          color: const Color.fromARGB(255, 36, 34, 45)),
+                          color: Color.fromARGB(255, 36, 34, 45)),
                       child: Column(
                         children: [
-                          Icon(Icons.power, color: Colors.white),
-                          SizedBox(height: 5),
+                          const Icon(Icons.power, color: Colors.white),
+                          const SizedBox(height: 5),
                           Row(
                             children: [
                               Text(
-                                '$power',
-                                style: TextStyle(
+                                power,
+                                style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                   fontSize: 20,
                                 ),
                               ),
-                              SizedBox(
+                              const SizedBox(
                                 width: 4,
                               ),
-                              Text(
+                              const Text(
                                 'kW',
                                 style: TextStyle(
                                   fontSize: 10,
@@ -326,15 +326,15 @@ class CarDetailsPage extends StatelessWidget {
               ),
             ),
           ),
-          Spacer(),
+          const Spacer(),
           // Booking Section
         ],
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         decoration: BoxDecoration(
-          color: Color.fromARGB(255, 20, 19, 25),
-          borderRadius: BorderRadius.only(
+          color: const Color.fromARGB(255, 20, 19, 25),
+          borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(30),
             topRight: Radius.circular(30),
           ),
@@ -343,27 +343,27 @@ class CarDetailsPage extends StatelessWidget {
               color: Colors.grey.withOpacity(0.2),
               spreadRadius: 5,
               blurRadius: 7,
-              offset: Offset(0, 3), // Changes position of shadow
+              offset: const Offset(0, 3), // Changes position of shadow
             ),
           ],
         ),
         child: Row(
           children: [
             Text(
-              '$price',
-              style: TextStyle(
+              price,
+              style: const TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
                   color: Colors.white),
             ),
-            Text(
+            const Text(
               '/1 day',
               style: TextStyle(
                 fontSize: 15,
                 color: Colors.white,
               ),
             ),
-            Spacer(),
+            const Spacer(),
             ElevatedButton(
                 onPressed: () {
                   // Booking logic here
@@ -373,9 +373,10 @@ class CarDetailsPage extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
                     Text(
                       'Book Car',
@@ -385,7 +386,7 @@ class CarDetailsPage extends StatelessWidget {
                       width: 5,
                     ),
                     Icon(Icons.arrow_forward,
-                        color: const Color.fromARGB(255, 255, 255, 255)),
+                        color: Color.fromARGB(255, 255, 255, 255)),
                   ],
                 )),
           ],
