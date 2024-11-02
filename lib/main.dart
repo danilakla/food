@@ -612,14 +612,15 @@ class FavoritesPage extends StatelessWidget {
                       leading: Image.asset(car.image),
                       title: Text(car.name),
                       subtitle: Text('${car.price} - ${car.distance} km'),
-                      // trailing: IconButton(
-                      //   icon: const Icon(Icons.delete, color: Colors.red),
-                      //   onPressed: () {
-                      //     // Remove from favorites
-                      //     carProvider.deleteFromFavorite(
-                      //         car.name); // Удалить из избранного
-                      //   },
-                      // ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          // Remove from favorites
+                          Provider.of<CarProvider>(context, listen: false)
+                              .deleteFromFavorite(
+                                  car.name); // Удалить из избранного
+                        },
+                      ),
                     );
                   },
                 );
