@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:food/car_model.dart';
 import 'package:food/details.dart';
 import 'package:food/firebase_options.dart';
-import 'package:food/user_model.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/intl.dart'; // Add this import for date formatting
 import 'package:device_info/device_info.dart';
@@ -19,12 +19,12 @@ void main() async {
   await Hive.initFlutter();
 
   Hive.registerAdapter(CarAdapter()); // Register the adapter
-  await Hive.openBox<Car>('favorites'); // Open a box for User objects
-  await Hive.openBox<Car>('carsed'); // Open a box for User objects
+  // await Hive.openBox<Car>('favorites'); // Open a box for User objects
+  // await Hive.openBox<Car>('carsed'); // Open a box for User objects
 
-  Hive.registerAdapter(UserAdapter()); // Register the adapter
-  await Hive.openBox<User>('users'); // Open a box for User objects
-  final userBox = Hive.box<User>('users');
+  // Hive.registerAdapter(UserAdapter()); // Register the adapter
+  // await Hive.openBox<User>('users'); // Open a box for User objects
+  // final userBox = Hive.box<User>('users');
 
   // final newUser1 = User(name: 'Jon', role: "user");
   // final newUser2 = User(name: 'Ban', role: "manager");
@@ -38,7 +38,9 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => CarProvider()),
       ],
-      child: RentalCarApp(),
+      child: MaterialApp(
+        home: AuthenticationWrapper(),
+      ),
     ),
   );
 }
@@ -70,7 +72,7 @@ class _RentaXHomePageState extends State<RentaXHomePage>
   late TabController _tabController;
   DateTime _selectedDate = DateTime.now();
   String _deviceManufacturer = 'Неизвестно';
-  User? _currentUser; // Current user object
+  // User? _currentUser; // Current user object
   List<User> _users = []; // List of users
 
   // Method to open the form and add a new car
@@ -92,27 +94,27 @@ class _RentaXHomePageState extends State<RentaXHomePage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadUsers();
+    // _loadUsers();
     // Provider.of<CarProvider>(context, listen: false).loadAll();
     // _loadCars();
   }
 
-  Future<void> _loadUsers() async {
-    final userBox = Hive.box<User>('users');
+  // Future<void> _loadUsers() async {
+  //   final userBox = Hive.box<User>('users');
 
-    setState(() {
-      _users = userBox.values.toList();
-      if (_users.isNotEmpty) {
-        _currentUser = _users.first; // Set the first user as default
-      }
-    });
-  }
+  //   setState(() {
+  //     _users = userBox.values.toList();
+  //     if (_users.isNotEmpty) {
+  //       _currentUser = _users.first; // Set the first user as default
+  //     }
+  //   });
+  // }
 
-  void _switchUser(User user) {
-    setState(() {
-      _currentUser = user;
-    });
-  }
+  // void _switchUser(User user) {
+  //   setState(() {
+  //     _currentUser = user;
+  //   });
+  // }
 
   Future<void> _getDeviceManufacturer() async {
     String deviceManufacturer;
@@ -169,20 +171,18 @@ class _RentaXHomePageState extends State<RentaXHomePage>
               Row(
                 children: [
                   const Icon(Icons.location_pin, color: Colors.white),
-                  if (_currentUser != null)
+                  if (true)
                     Row(
                       children: [
                         const Icon(Icons.person, color: Colors.white),
                         Text(
-                          'User: ${_currentUser!.name}, role: ${_currentUser!.role}',
+                          'User:',
                           style: const TextStyle(
                               color: Colors.white, fontSize: 12),
                         ),
                       ],
                     ),
-                  if (_currentUser != null &&
-                      (_currentUser!.role == 'admin' ||
-                          _currentUser!.role == 'manager'))
+                  if (true)
                     IconButton(
                       icon: const Icon(Icons.add),
                       onPressed:
@@ -194,12 +194,12 @@ class _RentaXHomePageState extends State<RentaXHomePage>
           ),
           actions: [
             PopupMenuButton<User>(
-              onSelected: _switchUser,
+              // onSelected: _switchUser,
               itemBuilder: (context) {
                 return _users.map((user) {
                   return PopupMenuItem(
                     value: user,
-                    child: Text(user.name),
+                    child: Text('da'),
                   );
                 }).toList();
               },
@@ -354,7 +354,7 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                             carImage: 'assets/images/image1.png',
                             logoImage:
                                 'assets/images/pors.png', // Static logo for demo purposes
-                            currentUser: _currentUser,
+                            currentUser: null,
                           );
                         },
                       ),
@@ -432,8 +432,8 @@ class CarCard extends StatelessWidget {
   Widget build(BuildContext context) {
     bool isFavorite = false;
     // Provider.of<CarProvider>(context).carFavoeiteBox.containsKey(carName);
-    bool canManageCars = currentUser != null &&
-        (currentUser!.role == 'admin' || currentUser!.role == 'manager');
+    bool canManageCars = true;
+    // (currentUser!.role == 'admin' || currentUser!.role == 'manager');
 
     return GestureDetector(
       onTap: () {
@@ -830,6 +830,122 @@ class _EditCarFormState extends State<EditCarForm> {
   }
 }
 
+class AuthenticationWrapper extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasData) {
+          // User is signed in
+          return RentalCarApp(); // Navigate to RentalCarApp
+        } else if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        } else {
+          // User is not signed in
+          return AuthenticationScreen(); // Show the AuthenticationScreen
+        }
+      },
+    );
+  }
+}
+
+class AuthenticationScreen extends StatefulWidget {
+  @override
+  _AuthenticationScreenState createState() => _AuthenticationScreenState();
+}
+
+class _AuthenticationScreenState extends State<AuthenticationScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isSignUpMode = true; // Start in sign-up mode
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final carProvider = Provider.of<CarProvider>(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_isSignUpMode ? 'Sign Up' : 'Sign In'),
+      ),
+      body: Form(
+        key: _formKey,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              TextFormField(
+                controller: _emailController,
+                decoration: InputDecoration(labelText: 'Email'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your email';
+                  }
+                  if (!value.contains('@')) {
+                    return 'Please enter a valid email';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16.0),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: InputDecoration(labelText: 'Password'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your password';
+                  }
+                  if (value.length < 6) {
+                    return 'Password must be at least 6 characters';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 32.0),
+              ElevatedButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    if (_isSignUpMode) {
+                      carProvider.signUpWithEmailAndPassword(
+                          _emailController.text, _passwordController.text);
+                    } else {
+                      carProvider.signInWithEmailAndPassword(
+                          _emailController.text, _passwordController.text);
+                    }
+                  }
+                },
+                child: Text(_isSignUpMode ? 'Sign Up' : 'Sign In'),
+              ),
+              SizedBox(height: 16.0),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _isSignUpMode = !_isSignUpMode;
+                  });
+                },
+                child: Text(_isSignUpMode
+                    ? 'Already have an account? Sign In'
+                    : 'Don\'t have an account? Sign Up'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class CarProvider with ChangeNotifier {
   late FirebaseFirestore _firestore;
   late CollectionReference _carsCollection;
@@ -941,6 +1057,52 @@ class CarProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('Error updating car: $e');
+    }
+  }
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  User? _currentUser;
+
+  User? get currentUser => _currentUser;
+
+  // Sign Up
+  Future<void> signUpWithEmailAndPassword(String email, String password) async {
+    try {
+      UserCredential userCredential = await _auth
+          .createUserWithEmailAndPassword(email: email, password: password);
+      _currentUser = userCredential.user;
+      notifyListeners();
+    } on FirebaseAuthException catch (e) {
+      print('Error signing up: ${e.code}');
+      // Handle specific error codes (e.g., weak-password, email-already-in-use)
+    } catch (e) {
+      print('Error signing up: $e');
+    }
+  }
+
+  // Sign In
+  Future<void> signInWithEmailAndPassword(String email, String password) async {
+    try {
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+          email: email, password: password);
+      _currentUser = userCredential.user;
+      notifyListeners();
+    } on FirebaseAuthException catch (e) {
+      print('Error signing in: ${e.code}');
+      // Handle specific error codes (e.g., wrong-password, user-not-found)
+    } catch (e) {
+      print('Error signing in: $e');
+    }
+  }
+
+  // Sign Out
+  Future<void> signOut() async {
+    try {
+      await _auth.signOut();
+      _currentUser = null;
+      notifyListeners();
+    } catch (e) {
+      print('Error signing out: $e');
     }
   }
 }
