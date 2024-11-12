@@ -1,15 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:food/car_model.dart';
 import 'package:food/details.dart';
 import 'package:food/firebase_options.dart';
+import 'package:github_sign_in/github_sign_in.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/intl.dart'; // Add this import for date formatting
 import 'package:device_info/device_info.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -175,10 +178,16 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                     Row(
                       children: [
                         const Icon(Icons.person, color: Colors.white),
-                        Text(
-                          'User:',
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 12),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => UserProfileScreen(),
+                              ),
+                            );
+                          },
+                          child: Text('View User Profile'),
                         ),
                       ],
                     ),
@@ -961,8 +970,51 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                   onPressed: _resetPassword,
                   child: Text('Reset Password'),
                 ),
+              ElevatedButton(
+                onPressed: () {
+                  carProvider.signInWithGitHub(context);
+                },
+                child: Text('Sign In with GitHub'),
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class UserProfileScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final carProvider = Provider.of<CarProvider>(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('User Profile'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (carProvider.getDisplayName() != null)
+              Text('Name: ${carProvider.getDisplayName()}'),
+            if (carProvider.getEmail() != null)
+              Text('Email: ${carProvider.getEmail()}'),
+            if (carProvider.getPhotoURL() != null)
+              CircleAvatar(
+                backgroundImage: NetworkImage(carProvider.getPhotoURL()!),
+                radius: 50,
+              ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                carProvider.signOut();
+                Navigator.pop(context); // Go back to the previous screen
+              },
+              child: Text('Sign Out'),
+            ),
+          ],
         ),
       ),
     );
@@ -1002,6 +1054,37 @@ class CarProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('Error loading cars: $e');
+    }
+  }
+
+  final GitHubSignIn _githubSignIn = GitHubSignIn(
+    clientId: 'Ov23liPdHt7CKkXvxESd',
+    clientSecret: '74303612ecb1d02d2d165e90f1c259e634e8d1c7',
+    redirectUrl:
+        'https://lab11-3c91b.firebaseapp.com/__/auth/handler', // Add your redirect URL here
+  );
+  Future<void> signInWithGitHub(BuildContext context) async {
+    try {
+      if (kIsWeb) {
+        // For web: Use signInWithPopup
+        final GithubAuthProvider authProvider = GithubAuthProvider();
+        final UserCredential userCredential =
+            await FirebaseAuth.instance.signInWithPopup(authProvider);
+        _currentUser = userCredential.user;
+      } else {
+        // For non-web platforms: Use signInWithRedirect
+        final GitHubSignInResult result = await _githubSignIn.signIn(context);
+        String token = result.token ?? "";
+        final credential = GithubAuthProvider.credential(token);
+        await FirebaseAuth.instance.signInWithCredential(credential);
+        _currentUser = FirebaseAuth.instance.currentUser;
+      }
+      notifyListeners();
+    } catch (e) {
+      print('Error signing in with GitHub: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error signing in with GitHub: $e')),
+      );
     }
   }
 
@@ -1068,6 +1151,29 @@ class CarProvider with ChangeNotifier {
     } catch (e) {
       print('Error adding to favorites: $e');
     }
+  }
+
+  String? getDisplayName() {
+    if (_currentUser != null) {
+      return _currentUser!.displayName;
+    }
+    return null;
+  }
+
+  // Method to get the current user's email
+  String? getEmail() {
+    if (_currentUser != null) {
+      return _currentUser!.email;
+    }
+    return null;
+  }
+
+  // Method to get the current user's photo URL
+  String? getPhotoURL() {
+    if (_currentUser != null) {
+      return _currentUser!.photoURL;
+    }
+    return null;
   }
 
   Future<void> updateCar(Car carNew) async {
