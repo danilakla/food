@@ -1,7 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:food/car_model.dart';
 import 'package:food/details.dart';
+import 'package:food/firebase_options.dart';
 import 'package:food/user_model.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/intl.dart'; // Add this import for date formatting
@@ -10,6 +13,9 @@ import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   await Hive.initFlutter();
 
   Hive.registerAdapter(CarAdapter()); // Register the adapter
@@ -18,6 +24,15 @@ void main() async {
 
   Hive.registerAdapter(UserAdapter()); // Register the adapter
   await Hive.openBox<User>('users'); // Open a box for User objects
+  final userBox = Hive.box<User>('users');
+
+  // final newUser1 = User(name: 'Jon', role: "user");
+  // final newUser2 = User(name: 'Ban', role: "manager");
+  // final newUser3 = User(name: 'Ton', role: "admin");
+
+  // userBox.add(newUser3);
+  // userBox.add(newUser1);
+  // userBox.add(newUser2);
   runApp(
     MultiProvider(
       providers: [
@@ -85,13 +100,6 @@ class _RentaXHomePageState extends State<RentaXHomePage>
   Future<void> _loadUsers() async {
     final userBox = Hive.box<User>('users');
 
-    // final newUser1 = User(name: 'Jon', role: "user");
-    // final newUser2 = User(name: 'Ban', role: "manager");
-    // final newUser3 = User(name: 'Ton', role: "admin");
-
-    // userBox.add(newUser3);
-    // userBox.add(newUser1);
-    // userBox.add(newUser2);
     setState(() {
       _users = userBox.values.toList();
       if (_users.isNotEmpty) {
@@ -422,8 +430,8 @@ class CarCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    bool isFavorite =
-        Provider.of<CarProvider>(context).carFavoeiteBox.containsKey(carName);
+    bool isFavorite = false;
+    // Provider.of<CarProvider>(context).carFavoeiteBox.containsKey(carName);
     bool canManageCars = currentUser != null &&
         (currentUser!.role == 'admin' || currentUser!.role == 'manager');
 
@@ -587,27 +595,36 @@ class FavoritesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Access the favorites box
     final carProvider = Provider.of<CarProvider>(context);
 
-    var favoritesBox = carProvider.carFavoeiteBox;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Favorite Cars'),
       ),
-      body: ValueListenableBuilder(
-        valueListenable: favoritesBox.listenable(), // Listen for changes
-        builder: (context, Box<Car> box, _) {
-          var favoriteCars = carProvider.carFavoeiteBox;
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: carProvider._favoritesCollection.snapshots()
+            as Stream<QuerySnapshot<Map<String, dynamic>>>,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Text('Error: ${snapshot.error}');
+          }
 
-          return carProvider._carsFavorite.isEmpty
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return CircularProgressIndicator();
+          }
+
+          List<Car> favoriteCars = snapshot.data!.docs
+              .map((doc) => Car.fromJson(doc.data()))
+              .toList();
+
+          return favoriteCars.isEmpty
               ? const Center(
                   child: Text('No favorite cars yet.'),
                 )
               : ListView.builder(
-                  itemCount: carProvider._carsFavorite.length,
+                  itemCount: favoriteCars.length,
                   itemBuilder: (context, index) {
-                    final car = carProvider._carsFavorite[index];
+                    final car = favoriteCars[index];
                     return ListTile(
                       leading: Image.asset(car.image),
                       title: Text(car.name),
@@ -616,9 +633,7 @@ class FavoritesPage extends StatelessWidget {
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () {
                           // Remove from favorites
-                          Provider.of<CarProvider>(context, listen: false)
-                              .deleteFromFavorite(
-                                  car.name); // Удалить из избранного
+                          carProvider.deleteFromFavorite(car.name);
                         },
                       ),
                     );
@@ -816,63 +831,146 @@ class _EditCarFormState extends State<EditCarForm> {
 }
 
 class CarProvider with ChangeNotifier {
+  late FirebaseFirestore _firestore;
+  late CollectionReference _carsCollection;
+  late CollectionReference _favoritesCollection;
+
   List<Car> _cars = [];
   List<Car> _carsFavorite = [];
-  final Box<Car> carBox = Hive.box<Car>('carsed'); // Connects to Hive
-  final Box<Car> carFavoeiteBox =
-      Hive.box<Car>('favorites'); // Connects to Hive
 
   List<Car> get cars => _cars;
   List<Car> get carsFavorite => _carsFavorite;
 
-  void addCar(Car car) {
-    _cars.add(car);
-    carBox.put(car.name, car); // Add to Hive
-    notifyListeners();
+  CarProvider() {
+    try {
+      this._firestore = FirebaseFirestore.instance;
+      this._carsCollection = _firestore.collection('cars');
+      this._favoritesCollection = _firestore.collection('favorites');
+    } catch (e) {
+      print('aaaaa $e');
+    }
+    // You can optionally call loadAll() here if you want to load data immediately
+    // loadAll();
   }
 
-  void loadAll() {
-    _cars = carBox.values.toList();
-    _carsFavorite = carFavoeiteBox.values.toList();
-    notifyListeners();
+  Future<void> addCar(Car car) async {
+    try {
+      await _carsCollection.doc(car.name).set(car.toJson());
+      _cars.add(car);
+      notifyListeners();
+    } catch (e) {
+      print('Error adding car: $e');
+      // Handle the error appropriately (e.g., show an error message to the user)
+    }
   }
 
-  void removeCar(Car car) {
-    _cars.remove(car);
-    carBox.delete(car.name); // Remove from Hive
-    notifyListeners();
+  Future<void> loadAll() async {
+    try {
+      QuerySnapshot<Map<String, dynamic>> carsSnapshot =
+          await _carsCollection.get() as QuerySnapshot<Map<String, dynamic>>;
+      _cars = carsSnapshot.docs.map((doc) => Car.fromJson(doc.data())).toList();
+
+      QuerySnapshot<Map<String, dynamic>> favoritesSnapshot =
+          await _favoritesCollection.get()
+              as QuerySnapshot<Map<String, dynamic>>;
+      _carsFavorite = favoritesSnapshot.docs
+          .map((doc) => Car.fromJson(doc.data()))
+          .toList();
+
+      notifyListeners();
+    } catch (e) {
+      print('Error loading cars: $e');
+      // Handle the error appropriately (e.g., show an error message to the user)
+    }
   }
 
-  void delete(String name) {
-    carBox.delete(name); // Remove from Hive
-
-    _cars.removeWhere((el) => el.name == name);
-    notifyListeners();
+  Future<void> removeCar(Car car) async {
+    try {
+      await _carsCollection.doc(car.name).delete();
+      _cars.remove(car);
+      notifyListeners();
+    } catch (e) {
+      print('Error removing car: $e');
+      // Handle the error appropriately (e.g., show an error message to the user)
+    }
   }
 
-  void deleteFromFavorite(String key) {
-    this.carFavoeiteBox.delete(key);
-    _carsFavorite.removeWhere((el) => el.name == key);
-    notifyListeners();
+  Future<void> delete(String name) async {
+    try {
+      await _carsCollection.doc(name).delete();
+      _cars.removeWhere((el) => el.name == name);
+      notifyListeners();
+    } catch (e) {
+      print('Error deleting car: $e');
+      // Handle the error appropriately (e.g., show an error message to the user)
+    }
   }
 
-  void putFavorite(String carName, Car car) {
-    this.carFavoeiteBox.put(carName, car);
-    this._carsFavorite.add(car);
-    notifyListeners();
+  Future<void> deleteFromFavorite(String id) async {
+    try {
+      await _favoritesCollection.doc(id).delete();
+      _carsFavorite.removeWhere((el) => el.name == id);
+      notifyListeners();
+    } catch (e) {
+      print('Error deleting from favorites: $e');
+      // Handle the error appropriately (e.g., show an error message to the user)
+    }
   }
 
-  void updateCar(Car carNew) {
-    Car? carToUpdate = _cars.firstWhere((car) => car.name == carNew.name);
+  Future<void> putFavorite(String carId, Car car) async {
+    try {
+      await _favoritesCollection.doc(carId).set(car.toJson());
+      _carsFavorite.add(car);
+      notifyListeners();
+    } catch (e) {
+      print('Error adding to favorites: $e');
+      // Handle the error appropriately (e.g., show an error message to the user)
+    }
+  }
 
-    carToUpdate.name = carNew.name;
-    carToUpdate.price = carNew.price;
-    carToUpdate.distance = carNew.distance;
+  Future<void> updateCar(Car carNew) async {
+    try {
+      await _carsCollection.doc(carNew.name).update(carNew.toJson());
+      int index = _cars.indexWhere((car) => car.name == carNew.name);
+      if (index != -1) {
+        _cars[index] = carNew;
+      }
+      notifyListeners();
+    } catch (e) {
+      print('Error updating car: $e');
+      // Handle the error appropriately (e.g., show an error message to the user)
+    }
+  }
+}
 
-    delete(carToUpdate.name);
-    addCar(carToUpdate);
+class Car {
+  String name;
+  String price;
+  String distance;
+  String image;
 
-    print('Car updated successfully');
-    notifyListeners();
+  Car({
+    required this.name,
+    required this.price,
+    required this.distance,
+    required this.image,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'price': price,
+      'distance': distance,
+      'image': image,
+    };
+  }
+
+  factory Car.fromJson(Map<String, dynamic> json) {
+    return Car(
+      name: json['name'],
+      price: json['price'],
+      distance: json['distance'],
+      image: json['image'],
+    );
   }
 }
