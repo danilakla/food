@@ -870,6 +870,22 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     super.dispose();
   }
 
+  Future<void> _resetPassword() async {
+    try {
+      await FirebaseAuth.instance
+          .sendPasswordResetEmail(email: _emailController.text);
+      // Display a success message to the user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Password reset email sent!')),
+      );
+    } on FirebaseAuthException catch (e) {
+      // Handle errors (e.g., user not found)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.message}')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final carProvider = Provider.of<CarProvider>(context);
@@ -938,6 +954,13 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                     ? 'Already have an account? Sign In'
                     : 'Don\'t have an account? Sign Up'),
               ),
+              if (!_isSignUpMode) // Show reset password button only for sign-in
+                SizedBox(height: 16.0),
+              if (!_isSignUpMode)
+                ElevatedButton(
+                  onPressed: _resetPassword,
+                  child: Text('Reset Password'),
+                ),
             ],
           ),
         ),
