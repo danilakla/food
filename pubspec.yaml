@@ -56,6 +56,8 @@ dependencies:
   github_sign_in: ^0.0.5-dev.4
   http: ^0.13.6
   url_launcher: ^6.3.1
+  firebase_messaging: ^15.1.4
+  cloud_functions: ^5.1.4
 dev_dependencies:
   flutter_test:
     sdk: flutter

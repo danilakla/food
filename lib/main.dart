@@ -1,6 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +18,7 @@ import 'package:intl/intl.dart'; // Add this import for date formatting
 import 'package:device_info/device_info.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -188,6 +194,17 @@ class _RentaXHomePageState extends State<RentaXHomePage>
                             );
                           },
                           child: Text('View User Profile'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => FCMDemo(),
+                              ),
+                            );
+                          },
+                          child: Text('Chat'),
                         ),
                       ],
                     ),
@@ -1021,6 +1038,62 @@ class UserProfileScreen extends StatelessWidget {
   }
 }
 
+class FCMDemo extends StatefulWidget {
+  @override
+  _FCMDemoState createState() => _FCMDemoState();
+}
+
+class _FCMDemoState extends State<FCMDemo> {
+  final _messageController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    final carProvider = Provider.of<CarProvider>(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('FCM Demo'),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: carProvider.messages.length,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  title: Text(carProvider.messages[index]),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter message',
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    carProvider.sendMessageToTopic(_messageController.text);
+                    _messageController.clear();
+                  },
+                  icon: Icon(Icons.send),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class CarProvider with ChangeNotifier {
   late FirebaseFirestore _firestore;
   late CollectionReference _carsCollection;
@@ -1031,12 +1104,59 @@ class CarProvider with ChangeNotifier {
 
   List<Car> get cars => _cars;
   List<Car> get carsFavorite => _carsFavorite;
+  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  void subscribeToTopic(String topic) async {
+    while (true) {
+      final response = await http.get(Uri.parse(
+          'http://localhost:3333/get-topicl')); // Replace with your server's URL
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as List<dynamic>;
+        _messages.clear();
+        _messages.addAll(data.cast<String>());
+        notifyListeners();
+      } else {
+        print('Error fetching messages: ${response.statusCode}');
+      }
+    }
+  }
 
   CarProvider() {
     _firestore = FirebaseFirestore.instance;
     _carsCollection = _firestore.collection('cars');
     _favoritesCollection = _firestore.collection('favorites');
     _loadCars();
+    subscribeToTopic("general");
+  }
+  final List<String> _messages = [];
+  List<String> get messages => _messages;
+
+  void sendMessage(String message) {
+    _messages.add(message);
+    notifyListeners();
+  }
+
+  Future<void> sendMessageToTopic(String message) async {
+    final url =
+        'http://localhost:3333/send-to-topic'; // Replace with your server's URL
+    final body = {'message': message, 'topic': "general"};
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        body: jsonEncode(body),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        print('Message sent successfully!');
+      } else {
+        print('Error sending message: ${response.statusCode}');
+        // Handle specific error codes here
+      }
+    } catch (error) {
+      print('Error sending message: $error');
+    }
   }
 
   Future<void> _loadCars() async {
