@@ -93,7 +93,7 @@ class _RentaXHomePageState extends State<RentaXHomePage>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadUsers();
-    Provider.of<CarProvider>(context, listen: false).loadAll();
+    // Provider.of<CarProvider>(context, listen: false).loadAll();
     // _loadCars();
   }
 
@@ -842,16 +842,44 @@ class CarProvider with ChangeNotifier {
   List<Car> get carsFavorite => _carsFavorite;
 
   CarProvider() {
-    try {
-      this._firestore = FirebaseFirestore.instance;
-      this._carsCollection = _firestore.collection('cars');
-      this._favoritesCollection = _firestore.collection('favorites');
-    } catch (e) {
-      print('aaaaa $e');
-    }
-    // You can optionally call loadAll() here if you want to load data immediately
-    // loadAll();
+    _firestore = FirebaseFirestore.instance;
+    _carsCollection = _firestore.collection('cars');
+    _favoritesCollection = _firestore.collection('favorites');
+    _loadCars();
   }
+
+  Future<void> _loadCars() async {
+    try {
+      QuerySnapshot<Map<String, dynamic>> carsSnapshot =
+          await _carsCollection.get() as QuerySnapshot<Map<String, dynamic>>;
+      _cars = carsSnapshot.docs.map((doc) => Car.fromJson(doc.data())).toList();
+
+      QuerySnapshot<Map<String, dynamic>> carsFavoriteSnapshot =
+          await _favoritesCollection.get()
+              as QuerySnapshot<Map<String, dynamic>>;
+      _carsFavorite = carsFavoriteSnapshot.docs
+          .map((doc) => Car.fromJson(doc.data()))
+          .toList();
+      notifyListeners();
+    } catch (e) {
+      print('Error loading cars: $e');
+    }
+  }
+
+  Stream<List<Car>> get carsStream =>
+      _carsCollection.snapshots().map((snapshot) {
+        return snapshot.docs
+            .map((doc) {
+              if (doc.exists) {
+                // If the document exists, safely cast doc.data() to Map<String, dynamic>
+                return Car.fromJson(doc.data()! as Map<String, dynamic>);
+              } else {
+                return null; // Return null if the document doesn't exist
+              }
+            })
+            .where((car) => car != null)
+            .toList() as List<Car>;
+      });
 
   Future<void> addCar(Car car) async {
     try {
@@ -860,27 +888,6 @@ class CarProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('Error adding car: $e');
-      // Handle the error appropriately (e.g., show an error message to the user)
-    }
-  }
-
-  Future<void> loadAll() async {
-    try {
-      QuerySnapshot<Map<String, dynamic>> carsSnapshot =
-          await _carsCollection.get() as QuerySnapshot<Map<String, dynamic>>;
-      _cars = carsSnapshot.docs.map((doc) => Car.fromJson(doc.data())).toList();
-
-      QuerySnapshot<Map<String, dynamic>> favoritesSnapshot =
-          await _favoritesCollection.get()
-              as QuerySnapshot<Map<String, dynamic>>;
-      _carsFavorite = favoritesSnapshot.docs
-          .map((doc) => Car.fromJson(doc.data()))
-          .toList();
-
-      notifyListeners();
-    } catch (e) {
-      print('Error loading cars: $e');
-      // Handle the error appropriately (e.g., show an error message to the user)
     }
   }
 
@@ -891,7 +898,6 @@ class CarProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('Error removing car: $e');
-      // Handle the error appropriately (e.g., show an error message to the user)
     }
   }
 
@@ -902,7 +908,6 @@ class CarProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('Error deleting car: $e');
-      // Handle the error appropriately (e.g., show an error message to the user)
     }
   }
 
@@ -913,7 +918,6 @@ class CarProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('Error deleting from favorites: $e');
-      // Handle the error appropriately (e.g., show an error message to the user)
     }
   }
 
@@ -924,7 +928,6 @@ class CarProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('Error adding to favorites: $e');
-      // Handle the error appropriately (e.g., show an error message to the user)
     }
   }
 
@@ -938,7 +941,6 @@ class CarProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('Error updating car: $e');
-      // Handle the error appropriately (e.g., show an error message to the user)
     }
   }
 }
