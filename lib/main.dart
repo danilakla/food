@@ -1106,10 +1106,9 @@ class CarProvider with ChangeNotifier {
   List<Car> get carsFavorite => _carsFavorite;
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   void subscribeToTopic(String topic) async {
-    while (true) {
+    Timer.periodic(Duration(seconds: 2), (timer) async {
       final response = await http.get(Uri.parse(
           'http://localhost:3333/get-topicl')); // Replace with your server's URL
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as List<dynamic>;
         _messages.clear();
@@ -1118,7 +1117,7 @@ class CarProvider with ChangeNotifier {
       } else {
         print('Error fetching messages: ${response.statusCode}');
       }
-    }
+    });
   }
 
   CarProvider() {
