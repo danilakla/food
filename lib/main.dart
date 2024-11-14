@@ -20,14 +20,16 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 
+bool a = false;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  await Hive.initFlutter();
+  a = true;
+  // await Hive.initFlutter();
 
-  Hive.registerAdapter(CarAdapter()); // Register the adapter
+  // Hive.registerAdapter(CarAdapter()); // Register the adapter
   // await Hive.openBox<Car>('favorites'); // Open a box for User objects
   // await Hive.openBox<Car>('carsed'); // Open a box for User objects
 
@@ -48,7 +50,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => CarProvider()),
       ],
       child: MaterialApp(
-        home: AuthenticationWrapper(),
+        home: RentalCarApp(),
       ),
     ),
   );
@@ -745,7 +747,7 @@ class _AddCarFormState extends State<AddCarForm> {
                       image: _image,
                     );
                     Provider.of<CarProvider>(context, listen: false)
-                        .addCar(newCar);
+                        .addCarTest(newCar);
                     Navigator.pop(context, newCar); // Pass the car back
                   }
                 },
@@ -1098,13 +1100,18 @@ class CarProvider with ChangeNotifier {
   late FirebaseFirestore _firestore;
   late CollectionReference _carsCollection;
   late CollectionReference _favoritesCollection;
+  FirebaseFirestore get firestore => _firestore;
+  CollectionReference get carsCollection => _carsCollection;
+  CollectionReference get favoritesCollection => _favoritesCollection;
 
+  set firestoreset(fr) => _firestore = fr;
+  set carsColleset(carsfco) => _carsCollection = carsfco;
+  set carFavorCOlleset(facfo) => _favoritesCollection = facfo;
   List<Car> _cars = [];
   List<Car> _carsFavorite = [];
 
   List<Car> get cars => _cars;
   List<Car> get carsFavorite => _carsFavorite;
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   void subscribeToTopic(String topic) async {
     Timer.periodic(Duration(seconds: 2), (timer) async {
       final response = await http.get(Uri.parse(
@@ -1121,12 +1128,14 @@ class CarProvider with ChangeNotifier {
   }
 
   CarProvider() {
+    _auth = FirebaseAuth.instance;
     _firestore = FirebaseFirestore.instance;
     _carsCollection = _firestore.collection('cars');
     _favoritesCollection = _firestore.collection('favorites');
     _loadCars();
     subscribeToTopic("general");
   }
+  CarProvider.test() {}
   final List<String> _messages = [];
   List<String> get messages => _messages;
 
@@ -1232,6 +1241,36 @@ class CarProvider with ChangeNotifier {
     }
   }
 
+  addCarTest(Car car) async {
+    _cars.add(car);
+    notifyListeners();
+  }
+
+  Car getCar(String name) {
+    return _cars.firstWhere((e) => e.name == name);
+  }
+
+  Future<void> deleteTest(String name) async {
+    try {
+      _cars.removeWhere((el) => el.name == name);
+      notifyListeners();
+    } catch (e) {
+      print('Error deleting car: $e');
+    }
+  }
+
+  Future<void> updateCarTest(Car carNew) async {
+    try {
+      int index = _cars.indexWhere((car) => car.name == carNew.name);
+      if (index != -1) {
+        _cars[index] = carNew;
+      }
+      notifyListeners();
+    } catch (e) {
+      print('Error updating car: $e');
+    }
+  }
+
   Future<void> removeCar(Car car) async {
     try {
       await _carsCollection.doc(car.name).delete();
@@ -1308,7 +1347,7 @@ class CarProvider with ChangeNotifier {
     }
   }
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  late final FirebaseAuth _auth;
   User? _currentUser;
 
   User? get currentUser => _currentUser;
